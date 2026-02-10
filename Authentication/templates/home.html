@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container text-center" style="padding-top:90px;">
+
+    <h1 class="fw-bold display-4">
+        Compare the Web.<br>
+        <span style="color:#6c63ff;">Save Smarter.</span>
+    </h1>
+
+    <p class="text-muted mt-3 fs-5">
+        Real-time pricing data aggregated across global markets with deep search grounding.
+        Get the best deals in seconds.
+    </p>
+
+    <!-- SEARCH BAR WITH BLUE BUTTON -->
+    <div class="d-flex justify-content-center mt-5">
+        <div class="input-group" style="max-width:650px;">
+            <input type="text"
+                   class="form-control form-control-lg border-0 shadow-sm"
+                   placeholder="What product are you looking for today?">
+
+            <button class="btn btn-primary px-4">
+                🔍
+            </button>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
