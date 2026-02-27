@@ -1,344 +1,593 @@
-{% extends "product_comparison/base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Product Comparison Intelligence Agent</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d2e;
+    --surface2: #252840;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --border: #2d3148;
+    --radius: 12px;
+  }
 
-{% block title %}Dashboard - DealHunt{% endblock %}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-{% block content %}
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-    <!-- Navigation Bar -->
-    <nav class="glass border-b border-gray-200 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Logo and Brand -->
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                    </div>
-                    <span
-                        class="text-xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
-                        DealHunt
-                    </span>
-                </div>
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
 
-                <!-- User Menu -->
-                <div class="flex items-center gap-4">
-                    <div class="hidden sm:block text-right">
-                        <p class="text-sm font-semibold text-gray-900" id="userName">Welcome!</p>
-                        <p class="text-xs text-gray-500" id="userEmail"></p>
-                    </div>
-                    <div class="relative">
-                        <button onclick="toggleUserMenu()"
-                            class="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-white font-semibold hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-                            <span id="userInitial">U</span>
-                        </button>
-                        <!-- Dropdown Menu -->
-                        <div id="userMenu"
-                            class="hidden absolute right-0 mt-2 w-48 glass rounded-xl shadow-lg py-2 border border-gray-200">
-                            <a href="#"
-                                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
-                                Profile
-                            </a>
-                            <a href="#"
-                                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
-                                Settings
-                            </a>
-                            <hr class="my-2 border-gray-200">
-                            <button onclick="logout()"
-                                class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                                Logout
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
+  /* ── NAV ── */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  nav .logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+  }
+  nav h1 { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+  nav span { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Statistics Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <!-- Product Count Card -->
-            <div
-                class="glass rounded-2xl p-6 border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Active</span>
-                </div>
-                <div class="text-3xl font-bold text-gray-900 mb-1" id="productCount">
-                    <div class="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
-                </div>
-                <p class="text-sm text-gray-600 font-medium">Tracked Products</p>
-            </div>
+  /* ── LAYOUT ── */
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
 
-            <!-- Alert Count Card -->
-            <div
-                class="glass rounded-2xl p-6 border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full">New</span>
-                </div>
-                <div class="text-3xl font-bold text-gray-900 mb-1" id="alertCount">
-                    <div class="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
-                </div>
-                <p class="text-sm text-gray-600 font-medium">Active Alerts</p>
-            </div>
+  /* ── HERO ── */
+  .hero {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .hero h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+  .hero p { color: var(--muted); font-size: 0.95rem; }
 
-            <!-- Price Drops Card -->
-            <div
-                class="glass rounded-2xl p-6 border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">Saved</span>
-                </div>
-                <div class="text-3xl font-bold text-gray-900 mb-1">Coming Soon</div>
-                <p class="text-sm text-gray-600 font-medium">Price History</p>
-            </div>
-        </div>
+  /* ── INPUT CARD ── */
+  .input-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    margin-bottom: 2rem;
+  }
 
-        <!-- Search Section -->
-        <div class="flex flex-col items-center justify-center py-16 px-4">
-            <div class="text-center mb-8 animate-fadeIn">
-                <h2 class="text-4xl font-bold text-gray-900 mb-3">Find the Best Deals</h2>
-                <p class="text-lg text-gray-600">Search and compare prices across multiple platforms</p>
-            </div>
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 8px;
+    width: fit-content;
+  }
+  .tab-btn {
+    padding: 0.45rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
 
-            <!-- Search Bar -->
-            <div class="w-full max-w-3xl relative animate-fadeIn" style="animation-delay: 0.1s;">
-                <div class="relative">
-                    <input type="text" id="searchInput" placeholder="Search for products, brands, or categories..."
-                        class="w-full px-6 py-5 pl-14 pr-32 text-lg border-2 border-gray-300 rounded-2xl focus:border-primary-500 focus:ring-4 focus:ring-primary-100 transition-all duration-300 outline-none glass shadow-lg">
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
-                    <!-- Search Icon -->
-                    <div class="absolute left-5 top-1/2 -translate-y-1/2">
-                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; }
 
-                    <!-- Search Button -->
-                    <button onclick="performSearch()"
-                        class="absolute right-2 top-1/2 -translate-y-1/2 gradient-primary text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-primary-500/50 transition-all duration-300 transform hover:scale-105">
-                        Search
-                    </button>
-                </div>
+  input[type="text"], input[type="url"] {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: var(--accent); }
 
-                <!-- Quick Search Suggestions -->
-                <div class="mt-6 flex flex-wrap gap-2 justify-center">
-                    <span class="text-sm text-gray-500 font-medium">Popular:</span>
-                    <button onclick="quickSearch('laptops')"
-                        class="text-sm px-4 py-2 bg-white border border-gray-200 rounded-full hover:border-primary-500 hover:text-primary-600 transition-all duration-300">
-                        Laptops
-                    </button>
-                    <button onclick="quickSearch('smartphones')"
-                        class="text-sm px-4 py-2 bg-white border border-gray-200 rounded-full hover:border-primary-500 hover:text-primary-600 transition-all duration-300">
-                        Smartphones
-                    </button>
-                    <button onclick="quickSearch('headphones')"
-                        class="text-sm px-4 py-2 bg-white border border-gray-200 rounded-full hover:border-primary-500 hover:text-primary-600 transition-all duration-300">
-                        Headphones
-                    </button>
-                    <button onclick="quickSearch('cameras')"
-                        class="text-sm px-4 py-2 bg-white border border-gray-200 rounded-full hover:border-primary-500 hover:text-primary-600 transition-all duration-300">
-                        Cameras
-                    </button>
-                </div>
-            </div>
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(108,99,255,0.06);
+  }
+  .drop-zone .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .drop-zone p { font-size: 0.85rem; }
+  #imagePreview { max-width: 100%; max-height: 200px; border-radius: 8px; display: none; margin-top: 1rem; }
 
-            <!-- Feature Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 w-full max-w-5xl">
-                <div
-                    class="text-center p-6 glass rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300">
-                    <div class="w-14 h-14 gradient-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                    </div>
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">Price Comparison</h3>
-                    <p class="text-sm text-gray-600">Compare prices from multiple retailers instantly</p>
-                </div>
+  .btn-compare {
+    width: 100%;
+    margin-top: 1.25rem;
+    padding: 0.85rem;
+    background: linear-gradient(135deg, var(--accent), #8b7cf8);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .btn-compare:hover { opacity: 0.92; }
+  .btn-compare:active { transform: scale(0.99); }
+  .btn-compare:disabled { opacity: 0.5; cursor: not-allowed; }
 
-                <div
-                    class="text-center p-6 glass rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300">
-                    <div class="w-14 h-14 gradient-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                    </div>
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">Price Alerts</h3>
-                    <p class="text-sm text-gray-600">Get notified when prices drop on your favorites</p>
-                </div>
+  /* ── LOADER ── */
+  #loader {
+    display: none;
+    text-align: center;
+    padding: 3rem;
+  }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loader p { color: var(--muted); font-size: 0.9rem; }
 
-                <div
-                    class="text-center p-6 glass rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300">
-                    <div class="w-14 h-14 gradient-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">Best Deals</h3>
-                    <p class="text-sm text-gray-600">Find the best deals and save money effortlessly</p>
-                </div>
-            </div>
-        </div>
-    </main>
-</div>
-{% endblock %}
+  /* ── RESULTS ── */
+  #results { display: none; }
 
-{% block extra_js %}
+  .product-identity {
+    background: linear-gradient(135deg, var(--surface), var(--surface2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .product-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    flex-shrink: 0;
+  }
+  .product-info h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .product-info .meta { font-size: 0.8rem; color: var(--muted); display: flex; gap: 1rem; flex-wrap: wrap; }
+  .meta span { display: flex; align-items: center; gap: 0.3rem; }
+
+  .confidence-bar {
+    margin-left: auto;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .confidence-bar .pct {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--success);
+  }
+  .confidence-bar p { font-size: 0.7rem; color: var(--muted); }
+
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .platform-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .platform-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    transition: border-color 0.2s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .platform-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .platform-card.best-price { border-color: var(--success); }
+  .platform-card.best-price::before {
+    content: '🏆 Best Price';
+    position: absolute; top: 0; right: 0;
+    background: var(--success);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-bottom-left-radius: 6px;
+  }
+  .platform-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+  .platform-price {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+  }
+  .platform-price.unavailable { font-size: 1rem; color: var(--muted); }
+  .platform-avail {
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+    display: flex; align-items: center; gap: 0.3rem;
+  }
+  .platform-avail.in-stock { color: var(--success); }
+  .platform-avail.out-stock { color: var(--danger); }
+  .platform-avail.unknown { color: var(--muted); }
+  .platform-rating { font-size: 0.78rem; color: var(--warning); margin-bottom: 0.75rem; }
+  .platform-seller { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.75rem; }
+
+  .btn-view {
+    display: block;
+    width: 100%;
+    padding: 0.5rem;
+    text-align: center;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-view:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── RAW JSON ── */
+  details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  summary {
+    padding: 0.85rem 1.25rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    list-style: none;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '▶'; font-size: 0.6rem; transition: transform 0.2s; }
+  details[open] summary::before { transform: rotate(90deg); }
+  pre {
+    background: var(--bg);
+    padding: 1.25rem;
+    font-size: 0.78rem;
+    overflow-x: auto;
+    color: #a8b8cc;
+    line-height: 1.6;
+  }
+
+  /* ── ERROR ── */
+  .error-box {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    color: var(--danger);
+    font-size: 0.88rem;
+    display: none;
+    margin-top: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">🔍</div>
+  <h1>Product Compare Agent</h1>
+  <span>Powered by Django · Real-time marketplace data</span>
+</nav>
+
+<main>
+  <div class="hero">
+    <h2>Compare Prices Across Marketplaces</h2>
+    <p>Enter a product URL, name, or upload an image — get verified prices instantly.</p>
+  </div>
+
+  <div class="input-card">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('url')">🔗 URL</button>
+      <button class="tab-btn" onclick="switchTab('text')">📝 Product Name</button>
+      <button class="tab-btn" onclick="switchTab('image')">🖼️ Image</button>
+    </div>
+
+    <!-- URL tab -->
+    <div class="tab-panel active" id="tab-url">
+      <label>Paste Amazon / Flipkart / Croma product URL</label>
+      <input type="url" id="urlInput" placeholder="https://www.amazon.in/dp/..." />
+    </div>
+
+    <!-- Text tab -->
+    <div class="tab-panel" id="tab-text">
+      <label>Enter product name with model &amp; variant</label>
+      <input type="text" id="textInput" placeholder="Samsung Galaxy S24 Ultra 256GB Titanium Black" />
+    </div>
+
+    <!-- Image tab -->
+    <div class="tab-panel" id="tab-image">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('imageFile').click()">
+        <div class="icon">📷</div>
+        <p>Click or drag &amp; drop a product image</p>
+        <p style="font-size:0.72rem; margin-top:0.3rem;">JPG, PNG, WEBP supported</p>
+      </div>
+      <input type="file" id="imageFile" accept="image/*" style="display:none" onchange="previewImage(this)" />
+      <img id="imagePreview" />
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+    <button class="btn-compare" id="compareBtn" onclick="runComparison()">
+      <span>🚀</span> Compare Now
+    </button>
+  </div>
+
+  <!-- Loader -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <p>Scanning marketplaces for the best price…</p>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="product-identity" id="productIdentity"></div>
+    <div class="section-title">📊 Price Comparison</div>
+    <div class="platform-grid" id="platformGrid"></div>
+    <details>
+      <summary>View Raw JSON Response</summary>
+      <pre id="rawJson"></pre>
+    </details>
+  </div>
+</main>
+
 <script>
-    // Check authentication - support both JWT and Django session
-    const token = localStorage.getItem('access_token');
+let activeTab = 'url';
 
-    // If no JWT token, check if user is authenticated via Django session
-    if (!token) {
-        // Check if we're authenticated via Django session (Google OAuth)
-        fetch('/api/dashboard-data/', {
-            method: 'GET',
-            credentials: 'include', // Include cookies for session auth
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }).then(response => {
-            if (!response.ok) {
-                // Not authenticated via session either, redirect to login
-                window.location.href = "{% url 'login_page' %}";
-            }
-        }).catch(() => {
-            window.location.href = "{% url 'login_page' %}";
-        });
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['url','text','image'][i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach((p, i) => {
+    p.classList.toggle('active', ['url','text','image'][i] === tab);
+  });
+}
+
+function previewImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const img = document.getElementById('imagePreview');
+  img.src = URL.createObjectURL(file);
+  img.style.display = 'block';
+  document.getElementById('dropZone').style.display = 'none';
+}
+
+// Drag-and-drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('imageFile').files = dt.files;
+    previewImage(document.getElementById('imageFile'));
+  }
+});
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+async function runComparison() {
+  hideError();
+  const btn = document.getElementById('compareBtn');
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('loader').style.display = 'block';
+  btn.disabled = true;
+
+  try {
+    let response;
+
+    // Get CSRF token and JWT token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCsrfTokenFromCookie();
+    const jwtToken = localStorage.getItem('access_token');
+    
+    const headers = {};
+    if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+    if (jwtToken) headers['Authorization'] = `Bearer ${jwtToken}`;
+
+    if (activeTab === 'image') {
+      const file = document.getElementById('imageFile').files[0];
+      if (!file) { showError('Please upload a product image.'); return; }
+      const formData = new FormData();
+      formData.append('image', file);
+      response = await fetch('/api/compare/image/', { method: 'POST', body: formData, headers, credentials: 'include' });
+    } else {
+      const query = activeTab === 'url'
+        ? document.getElementById('urlInput').value.trim()
+        : document.getElementById('textInput').value.trim();
+      if (!query) { showError('Please enter a product URL or name.'); return; }
+      headers['Content-Type'] = 'application/json';
+      response = await fetch('/api/compare/', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({ query }),
+      });
     }
 
-    // Load user data
-    function loadUserData() {
-        const userData = localStorage.getItem('user_data');
-        if (userData) {
-            const user = JSON.parse(userData);
-            displayUserData(user);
-        } else {
-            // For Google OAuth users, user data will come from dashboard API
-            // We'll update it when fetchDashboardData runs
-        }
+    const data = await response.json();
+    renderResults(data);
+  } catch (err) {
+    showError('Network error: ' + err.message);
+  } finally {
+    document.getElementById('loader').style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+// Helper function to get CSRF token from cookie
+function getCsrfTokenFromCookie() {
+  const name = 'csrftoken';
+  const cookies = document.cookie.split(';');
+  for (let cookie of cookies) {
+    cookie = cookie.trim();
+    if (cookie.startsWith(name + '=')) {
+      return cookie.substring(name.length + 1);
     }
+  }
+  return null;
+}
 
-    function displayUserData(user) {
-        document.getElementById('userName').textContent = `Welcome, ${user.username}!`;
-        document.getElementById('userEmail').textContent = user.email;
-        document.getElementById('userInitial').textContent = user.username.charAt(0).toUpperCase();
-    }
+function renderResults(data) {
+  const resultsEl = document.getElementById('results');
+  resultsEl.style.display = 'block';
+  document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
 
-    // Fetch dashboard data
-    async function fetchDashboardData() {
-        try {
-            const headers = {
-                'Content-Type': 'application/json'
-            };
+  if (data.error) {
+    showError(data.error);
+    return;
+  }
 
-            // Add JWT token if available
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
+  // Product identity
+  const pi = data.product_identity || {};
+  const confPct = Math.round((data.confidence || 0) * 100);
+  document.getElementById('productIdentity').innerHTML = `
+    <div class="product-icon">📦</div>
+    <div class="product-info">
+      <h3>${pi.product || 'Unknown Product'}</h3>
+      <div class="meta">
+        <span>🏷️ ${pi.brand || '—'}</span>
+        <span>🔢 ${pi.variant || '—'}</span>
+      </div>
+    </div>
+    <div class="confidence-bar">
+      <div class="pct">${confPct}%</div>
+      <p>Confidence</p>
+    </div>
+  `;
 
-            const response = await fetch('/api/dashboard-data/', {
-                method: 'GET',
-                credentials: 'include', // Include cookies for session auth
-                headers: headers
-            });
+  // Comparisons
+  const grid = document.getElementById('platformGrid');
+  grid.innerHTML = '';
+  const comps = data.comparisons || [];
 
-            if (response.ok) {
-                const data = await response.json();
-                document.getElementById('productCount').textContent = data.product_count;
-                document.getElementById('alertCount').textContent = data.alert_count;
+  if (comps.length === 0) {
+    grid.innerHTML = '<p style="color:var(--muted);font-size:0.88rem;">No verified matches found across marketplaces.</p>';
+    return;
+  }
 
-                // Display user data if available (for Google OAuth users)
-                if (data.user) {
-                    displayUserData(data.user);
-                }
-            } else if (response.status === 401) {
-                // Not authenticated
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('user_data');
-                window.location.href = "{% url 'login_page' %}";
-            }
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-            document.getElementById('productCount').textContent = '0';
-            document.getElementById('alertCount').textContent = '0';
-        }
-    }
+  // Find best price
+  const prices = comps.map(c => c.price).filter(p => p !== null && p !== undefined);
+  const bestPrice = prices.length ? Math.min(...prices) : null;
 
-    // Toggle user menu
-    function toggleUserMenu() {
-        const menu = document.getElementById('userMenu');
-        menu.classList.toggle('hidden');
-    }
+  comps.forEach(c => {
+    const isBest = bestPrice !== null && c.price === bestPrice;
+    const priceHtml = c.price !== null && c.price !== undefined
+      ? `<div class="platform-price">₹${Number(c.price).toLocaleString('en-IN')}</div>`
+      : `<div class="platform-price unavailable">Price unavailable</div>`;
 
-    // Close menu when clicking outside
-    document.addEventListener('click', function (event) {
-        const menu = document.getElementById('userMenu');
-        const button = event.target.closest('button[onclick="toggleUserMenu()"]');
+    const availClass = (() => {
+      const a = (c.availability || '').toLowerCase();
+      if (a.includes('in stock') || a.includes('available')) return 'in-stock';
+      if (a.includes('out') || a.includes('unavailable')) return 'out-stock';
+      return 'unknown';
+    })();
+    const availIcon = availClass === 'in-stock' ? '✅' : availClass === 'out-stock' ? '❌' : '⏳';
 
-        if (!button && !menu.contains(event.target)) {
-            menu.classList.add('hidden');
-        }
-    });
+    const ratingHtml = c.rating
+      ? `<div class="platform-rating">${'★'.repeat(Math.round(c.rating))}${'☆'.repeat(5 - Math.round(c.rating))} ${c.rating.toFixed(1)}</div>`
+      : '';
 
-    // Logout function
-    function logout() {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_data');
-        window.location.href = "{% url 'login_page' %}";
-    }
+    const sellerHtml = c.seller ? `<div class="platform-seller">Sold by: ${c.seller}</div>` : '';
 
-    // Search functionality
-    function performSearch() {
-        const searchInput = document.getElementById('searchInput');
-        const query = searchInput.value.trim();
+    const viewBtn = c.url
+      ? `<a href="${c.url}" target="_blank" rel="noopener" class="btn-view">View Product →</a>`
+      : `<span style="font-size:0.75rem;color:var(--muted);">URL unavailable</span>`;
 
-        if (query) {
-            // TODO: Implement actual search functionality
-            alert(`Searching for: ${query}\n\nThis feature will be implemented to search and compare products across multiple platforms.`);
-        }
-    }
-
-    // Quick search
-    function quickSearch(term) {
-        document.getElementById('searchInput').value = term;
-        performSearch();
-    }
-
-    // Allow search on Enter key
-    document.getElementById('searchInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            performSearch();
-        }
-    });
-
-    // Initialize
-    loadUserData();
-    fetchDashboardData();
+    const card = document.createElement('div');
+    card.className = `platform-card${isBest ? ' best-price' : ''}`;
+    card.innerHTML = `
+      <div class="platform-name">${c.platform}</div>
+      ${priceHtml}
+      <div class="platform-avail ${availClass}">${availIcon} ${c.availability || 'Unknown'}</div>
+      ${ratingHtml}
+      ${sellerHtml}
+      ${viewBtn}
+    `;
+    grid.appendChild(card);
+  });
+}
 </script>
-{% endblock %}
+</body>
+</html>
