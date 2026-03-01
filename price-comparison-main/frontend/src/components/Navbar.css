@@ -1,0 +1,152 @@
+.navbar {
+  height: 70px;
+  background: #4b4fcf;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 25px;
+  gap: 20px;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: bold;
+  min-width: 150px;
+}
+
+/* Search Container Styles */
+.search-container {
+  flex: 1;
+  max-width: 600px;
+  margin: 0 20px;
+}
+
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 8px;
+  padding: 0 12px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.search-wrapper:focus-within {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.search-icon {
+  color: #666;
+  margin-right: 8px;
+}
+
+.search-input {
+  flex: 1;
+  height: 40px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  padding: 0 8px;
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.upload-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.upload-btn:hover {
+  background: #f0f0f0;
+  color: #4b4fcf;
+}
+
+.upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploading-spinner {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.url-indicator {
+  position: absolute;
+  right: 80px;
+  color: #4b4fcf;
+  background: #e8e8ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 150px;
+  justify-content: flex-end;
+}
+
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nav-links a:hover {
+  text-decoration: underline;
+}
+
+.welcome {
+  font-size: 14px;
+}
+
+.logout-btn {
+  background: #dc3545;
+  border: none;
+  padding: 6px 14px;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background: #b52a37;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .navbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 15px;
+  }
+  
+  .search-container {
+    order: 3;
+    max-width: 100%;
+    margin: 10px 0 0;
+  }
+}
