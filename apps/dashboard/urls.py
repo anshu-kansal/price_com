@@ -19,5 +19,7 @@ urlpatterns = [
     path('api/system-health/', views.api_system_health, name='api_system_health'),
     path('api/search/', views.api_search, name='api_search'),
     path('api/image-search/', views.api_image_search, name='api_image_search'),
+    path('api/image-search/form/', views.api_image_search_form, name='api_image_search_form'),
+    path('api/activate-dip-alert/', views.api_activate_dip_alert, name='api_activate_dip_alert'),
     path('api/result/<str:task_id>/', views.api_result, name='api_result'),
 ]

@@ -21,3 +21,4 @@ pytz
 bs4
 redis
 numpy
+pytesseract

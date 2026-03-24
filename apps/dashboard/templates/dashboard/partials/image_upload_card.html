@@ -9,11 +9,13 @@
           hx-post="/dashboard/api/image-search/"
           hx-encoding="multipart/form-data"
           hx-target="#image-upload-panel"
-          hx-swap="outerHTML">
+          hx-swap="outerHTML"
+          hx-indicator="#upload-spinner">
+        {% csrf_token %}
         <div class="border border-brand-border bg-[#0a0d14] p-4">
             <label for="imgfile" class="block text-[10px] text-brand-textMuted mb-2">Drag & drop an image or click to choose</label>
             <div class="relative w-full h-40 flex items-center justify-center bg-[#05080c] border border-[#111319] hover:border-brand-accent/50 transition-colors group cursor-pointer overflow-hidden" x-data="{ fileName: '' }">
-                <input id="imgfile" type="file" name="image" accept="image/*" 
+                <input id="imgfile" type="file" name="image" accept="image/*" required
                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                        @change="fileName = $event.target.files.length ? $event.target.files[0].name : ''">
                 
@@ -27,8 +29,9 @@
         </div>
 
         <button type="submit"
-                class="px-4 py-2 bg-brand-accent text-[#080B0F] font-bold uppercase text-[10px] tracking-widest">
-            Upload & Analyze
+                class="px-4 py-2 bg-brand-accent text-[#080B0F] font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
+            <span id="upload-spinner" class="htmx-indicator h-3 w-3 border-2 border-[#080B0F] border-t-transparent animate-spin inline-block"></span>
+            <span>Upload & Analyze</span>
         </button>
 
         <p class="text-[11px] text-brand-textMuted">We run OCR → fuzzy match → scrape → update the table and chart automatically.</p>

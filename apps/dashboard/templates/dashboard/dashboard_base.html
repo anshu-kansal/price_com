@@ -269,17 +269,17 @@
             Alpine.store('pricecomStore', {
                 isSidebarOpen: false,
                 activeAlerts: {{ active_alerts|default:"0" }},
-            selectedProductId: null,
-            predictionSignal: '{{ prediction.signal|default:""|escapejs }}',
-            systemError: false,
-            watchlistCount: 0,
-            imageSearchState: {
-            taskId: null,
-            status: null,
-            results: null,
-            ocrText: null,
-            error: null
-        }
+                selectedProductId: null,
+                predictionSignal: '{{ prediction.signal|default:""|escapejs }}',
+                systemError: false,
+                watchlistCount: 0,
+                imageSearchState: {
+                    taskId: null,
+                    status: null,
+                    results: null,
+                    ocrText: null,
+                    error: null
+                }
             });
 
         Alpine.data('pricecomStore', () => ({
@@ -352,10 +352,11 @@
                                 (data.results || []).forEach(function (item) {
                                     const tr = document.createElement('tr');
                                     tr.className = 'hover:bg-[#0a111a] transition-none group cursor-pointer';
-                                    const name = (item.name || item.store || 'Result');
-                                    const price = item.price ? ('₹' + Number(item.price).toLocaleString('en-IN')) : 'N/A';
-                                    const alt = item.alt_price ? ('₹' + Number(item.alt_price).toLocaleString('en-IN')) : 'N/A';
-                                    const minv = item.min_price ? ('₹' + Number(item.min_price).toLocaleString('en-IN')) : price;
+                                    const name = (item.name || 'Result');
+                                    const storeName = (item.store || '—');
+                                    // Prices are pre-formatted from backend (e.g. "₹17,999")
+                                    const price = item.price || 'N/A';
+                                    const minv = item.min || item.min_price || price;
                                     const delta = item.delta || '';
                                     const url = item.url || '#';
                                     tr.innerHTML = `
@@ -366,8 +367,8 @@
                                                 </div>
                                             </div>
                                         </td>
+                                        <td class="px-4 py-3 text-brand-textMuted">${storeName}</td>
                                         <td class="px-4 py-3 tabular-nums text-brand-textMuted">${price}</td>
-                                        <td class="px-4 py-3 tabular-nums text-brand-textMuted">${alt}</td>
                                         <td class="px-4 py-3 tabular-nums"><span class="font-bold text-brand-success">${minv}</span></td>
                                         <td class="px-4 py-3"><span class="text-[10px] text-brand-textMuted bg-[#0D1117] px-1 border border-brand-border">${delta}</span></td>
                                         <td class="px-4 py-3 text-right"><a href="${url}" target="_blank" class="bg-transparent text-brand-accent border border-brand-accent px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-brand-accent hover:text-[#080B0F] transition-none">VISIT</a></td>
@@ -382,6 +383,48 @@
                                 if (data.chart.categories) { ApexCharts.exec('priceHistoryChart', 'updateOptions', { xaxis: { categories: data.chart.categories } }); }
                             }
 
+                            // update product name in telemetry feed
+                            if (data.product_name) {
+                                const display = document.getElementById('current-product-display');
+                                if (display) display.innerText = '- ' + data.product_name;
+
+                                // Transition AI Shopper panel to SUCCESS state
+                                const statusH3 = document.getElementById('image-processing-status');
+                                if (statusH3) statusH3.innerText = data.product_name;
+                                
+                                const spinner = document.getElementById('image-processing-spinner');
+                                if (spinner) {
+                                    spinner.innerHTML = '<i class="fas fa-check-circle text-brand-success mr-2"></i><span>Identification and search complete.</span>';
+                                    spinner.classList.remove('text-brand-textMuted');
+                                    spinner.classList.add('text-brand-success');
+                                }
+                                
+                                const pollText = document.getElementById('image-polling-text');
+                                if (pollText) pollText.innerText = 'All results loaded into the matrix.';
+                            }
+
+                            // Restore the upload form so the user can search again
+                            const uploadPanel = document.getElementById('image-upload-panel');
+                            if (uploadPanel) {
+                                uploadPanel.innerHTML = `
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div>
+                                            <p class="text-xs uppercase text-brand-textMuted tracking-widest">AI Shopper</p>
+                                            <h3 class="text-brand-textHighlight font-semibold">${data.product_name || 'Search Complete'}</h3>
+                                        </div>
+                                        <div class="text-[10px] text-brand-success"><i class="fas fa-check-circle mr-1"></i>DONE</div>
+                                    </div>
+                                    <button
+                                        hx-get="/dashboard/api/image-search/form/"
+                                        hx-target="#image-upload-panel"
+                                        hx-swap="outerHTML"
+                                        class="w-full px-4 py-2 bg-brand-accent text-[#080B0F] font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                                        <i class="fas fa-camera mr-1"></i> Search Another Product
+                                    </button>
+                                `;
+                                if (window.htmx) htmx.process(uploadPanel);
+                            }
+
                             store.imageSearchState.status = 'SUCCESS';
                             return;
                         }
@@ -389,6 +432,27 @@
                         if (data.status === 'FAILURE') {
                             store.imageSearchState.error = data.error || 'Processing failed';
                             store.imageSearchState.status = 'FAILURE';
+                            // Show error + re-upload button
+                            const uploadPanel = document.getElementById('image-upload-panel');
+                            if (uploadPanel) {
+                                uploadPanel.innerHTML = `
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div>
+                                            <p class="text-xs uppercase text-brand-textMuted tracking-widest">AI Shopper</p>
+                                            <h3 class="text-[#ff99b5] font-semibold">${data.error || 'Processing failed'}</h3>
+                                        </div>
+                                        <div class="text-[10px] text-[#ff3366]"><i class="fas fa-times-circle mr-1"></i>ERROR</div>
+                                    </div>
+                                    <button
+                                        hx-get="/dashboard/api/image-search/form/"
+                                        hx-target="#image-upload-panel"
+                                        hx-swap="outerHTML"
+                                        class="w-full px-4 py-2 bg-brand-accent text-[#080B0F] font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                                        <i class="fas fa-redo mr-1"></i> Try Again
+                                    </button>
+                                `;
+                                if (window.htmx) htmx.process(uploadPanel);
+                            }
                             return;
                         }
 

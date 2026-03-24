@@ -89,6 +89,13 @@ def search_and_scrape(self, query: str) -> Dict[str, Any]:
 
 @shared_task(bind=True)
 def image_search_task(self, temp_path: str, ocr_text: Optional[str] = None) -> Dict[str, Any]:
-    """Proxy image search to universal search using OCR text as query."""
-    query = ocr_text or os.path.basename(temp_path)
+    """Proxy image search to universal search after performing visual identification in background."""
+    from apps.dashboard.views import _perform_visual_identification
+    
+    query = ocr_text
+    if not query or len(query.strip()) < 3:
+        query = _perform_visual_identification(temp_path)
+        if not query:
+            query = os.path.basename(temp_path)
+            
     return search_and_scrape.apply(args=[query]).get()

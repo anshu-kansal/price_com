@@ -2,20 +2,26 @@
     <div class="flex items-center justify-between">
         <div>
             <p class="text-xs uppercase text-brand-textMuted tracking-widest">AI Shopper</p>
-            <h3 class="text-brand-textHighlight font-semibold">Processing image…</h3>
+            <h3 id="image-processing-status" class="text-brand-textHighlight font-semibold">Processing image…</h3>
         </div>
         <div class="text-[10px] text-brand-textMuted">OCR + scrape running</div>
     </div>
 
-    <div class="flex items-center space-x-3 text-brand-textMuted text-sm">
+    <div id="image-processing-spinner" class="flex items-center space-x-3 text-brand-textMuted text-sm">
         <span class="h-4 w-4 border-2 border-brand-accent border-t-transparent animate-spin inline-block"></span>
         <span>We will update the price table and chart automatically.</span>
     </div>
 
-    <div hx-get="/dashboard/api/result/{{ task_id }}/"
-         hx-trigger="load, every 2s"
-         hx-target="#products-tbody"
-         hx-swap="innerHTML">
-        <div class="text-[10px] text-brand-textMuted">Polling for results…</div>
+    <div class="mt-2">
+        <div id="image-polling-text" class="text-[10px] text-brand-textMuted italic tracking-widest uppercase">
+            [ SYNC_IN_PROGRESS: TASK_{{ task_id|truncatechars:8 }} ]
+        </div>
     </div>
+
+    <script>
+        // Trigger the JS poller which handles Table, Chart and Header updates
+        if (typeof window.startImagePoll === 'function') {
+            window.startImagePoll("{{ task_id }}");
+        }
+    </script>
 </div>

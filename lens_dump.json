@@ -1,0 +1,20 @@
+{
+  "search_metadata": {
+    "id": "69c2c8e152acc647440f9594",
+    "status": "Success",
+    "json_endpoint": "https://serpapi.com/searches/XDClVKL4F70Vixsc7oeasQ/69c2c8e152acc647440f9594.json",
+    "created_at": "2026-03-24 17:24:49 UTC",
+    "processed_at": "2026-03-24 17:24:49 UTC",
+    "google_lens_url": "https://lens.google.com/uploadbyurl?url=https%3A%2F%2Ffiles.catbox.moe%2Fqnaek5.png",
+    "raw_html_file": "https://serpapi.com/searches/XDClVKL4F70Vixsc7oeasQ/69c2c8e152acc647440f9594.html",
+    "total_time_taken": 1.07
+  },
+  "search_parameters": {
+    "engine": "google_lens",
+    "url": "https://files.catbox.moe/qnaek5.png"
+  },
+  "search_information": {
+    "images_results_state": "Fully empty"
+  },
+  "error": "Google Lens hasn't returned any results for this query."
+}

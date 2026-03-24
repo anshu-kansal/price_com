@@ -8,6 +8,8 @@ import threading
 import uuid
 import time
 import os
+import requests
+import base64
 import logging
 from django.conf import settings
 from .tasks import image_search_task
@@ -20,7 +22,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 
 from apps.scraper.models import (
     NotificationLog,
@@ -296,9 +298,11 @@ def _watchlist_items(user) -> List[Dict[str, Any]]:
 
         items.append(
             {
-                'name': product.name[:22].upper(),
-                'target': _format_rupees(target_price),
-                'current': _format_rupees(current_price),
+                'watchlist_id': str(entry.id) if hasattr(entry, 'id') else '',
+                'product_id': product.id,
+                'product_name': product.name.upper(),
+                'target_price': target_price,
+                'current_lowest_price': current_price,
                 'delta': f"{'+' if delta_value >= 0 else '-'}{magnitude_label}_DELTA",
                 'pct': progress or 5,
             }
@@ -319,12 +323,15 @@ def _watchlist_items(user) -> List[Dict[str, Any]]:
             )
         if current_price is None:
             continue
+        
         target_price = Decimal(current_price) * Decimal('0.97')
         items.append(
             {
-                'name': product.name[:22].upper(),
-                'target': _format_rupees(target_price),
-                'current': _format_rupees(current_price),
+                'watchlist_id': '',  # No watchlist entry yet
+                'product_id': product.id,
+                'product_name': product.name.upper(),
+                'target_price': target_price,
+                'current_lowest_price': current_price,
                 'delta': '+0_DELTA',
                 'pct': 65,
             }
@@ -1142,10 +1149,12 @@ if(window.ApexCharts){
     try{
         ApexCharts.exec('priceHistoryChart', 'updateSeries', %s);
         ApexCharts.exec('priceHistoryChart', 'updateOptions', { xaxis: { categories: %s } });
+        const display = document.getElementById('current-product-display');
+        if (display) display.innerText = '- ' + '%s';
     }catch(e){ console.error('chart update', e); }
 }
 </script>
-""" % (json.dumps(chart.get('series', [])), json.dumps(chart.get('categories', [])))
+""" % (json.dumps(chart.get('series', [])), json.dumps(chart.get('categories', [])), clean_q.upper())
             return HttpResponse(html)
 
         # default render search panel results
@@ -1167,26 +1176,147 @@ if(window.ApexCharts){
 _IMAGE_TASKS: Dict[str, Dict[str, Any]] = {}
 
 
-def _simulate_image_workflow(task_id: str, image_path: str, ocr_text: str = '') -> None:
-    """Fallback path when Celery isn't available: run synchronous search/scrape."""
+def _perform_visual_identification(path: str) -> str:
+    """Helper to perform Strategy 1 (Lens) and Strategy 2 (OCR) in the background."""
+    recognized_query = ""
+    
+    # Strategy 1: SerpAPI Google Lens
     try:
-        time.sleep(1.5)
-        query = ocr_text or os.path.basename(image_path)
+        SERPAPI_API_KEY = getattr(settings, 'SERPAPI_API_KEY', '') or os.getenv('SERPAPI_API_KEY', '')
+        if SERPAPI_API_KEY:
+            public_url = None
+            try:
+                import base64
+                with open(path, 'rb') as img_file:
+                    img_b64 = base64.b64encode(img_file.read()).decode('utf-8')
+                
+                upload_resp = requests.post(
+                    'https://freeimage.host/api/1/upload',
+                    data={'key': '6d207e02198a847aa98d0a2a901485a5', 'source': img_b64, 'format': 'json'},
+                    timeout=20
+                )
+                if upload_resp.status_code == 200:
+                    public_url = upload_resp.json().get('image', {}).get('url')
+                
+                if not public_url: # ImgBB Fallback
+                    upload_resp = requests.post(
+                        'https://api.imgbb.com/1/upload',
+                        data={'key': '65239e94444586d11b33345426f8d02c', 'image': img_b64},
+                        timeout=20
+                    )
+                    public_url = upload_resp.json().get('data', {}).get('url') if upload_resp.status_code == 200 else None
+
+                if not public_url: # Catbox Fallback
+                    cat_resp = requests.post('https://catbox.moe/user/api.php', data={'reqtype': 'fileupload'}, files={'fileToUpload': open(path, 'rb')}, timeout=20)
+                    if cat_resp.status_code == 200 and cat_resp.text.startswith('http'):
+                        public_url = cat_resp.text.strip()
+            except Exception as e:
+                logger.error('Background identification upload failed: %s', e)
+
+            if public_url:
+                lens_params = {'engine': 'google_lens', 'url': public_url, 'api_key': SERPAPI_API_KEY, 'hl': 'en', 'gl': 'in'}
+                lens_resp = requests.get('https://serpapi.com/search.json', params=lens_params, timeout=25)
+                if lens_resp.status_code == 200:
+                    lens_data = lens_resp.json()
+                    logger.info('Google Lens results keys: %s', list(lens_data.keys()))
+                    
+                    # 1. Knowledge Graph (High precision)
+                    knowledge = lens_data.get('knowledge_graph', {})
+                    if isinstance(knowledge, list) and knowledge:
+                        recognized_query = knowledge[0].get('title', '')
+                    elif isinstance(knowledge, dict):
+                        recognized_query = knowledge.get('title', '') or knowledge.get('name', '')
+                    
+                    # 2. Reverse Image Search (Medium precision)
+                    if not recognized_query:
+                        reverse = lens_data.get('reverse_image_search', {})
+                        if isinstance(reverse, dict):
+                            recognized_query = reverse.get('search_link_text') # Highly descriptive
+                    
+                    # 3. Visual Matches (High volume fallback)
+                    if not recognized_query:
+                        visual_matches = lens_data.get('visual_matches', [])
+                        if visual_matches:
+                            # Prefer the first descriptive title
+                            recognized_query = visual_matches[0].get('title', '')
+                    
+                    # 4. Related Searches (General fallback)
+                    if not recognized_query:
+                        related = lens_data.get('related_searches', [])
+                        if related: recognized_query = related[0].get('query', '')
+    except Exception as e:
+        logger.error('Background Lens identification failed: %s', e)
+
+    # Strategy 2: Tesseract OCR Fallback
+    if not recognized_query or len(recognized_query.strip()) < 3:
+        try:
+            import pytesseract
+            from PIL import Image
+            img = Image.open(path)
+            tesseract_path = getattr(settings, 'TESSERACT_CMD', None)
+            if tesseract_path: pytesseract.pytesseract.tesseract_cmd = tesseract_path
+            raw_text = pytesseract.image_to_string(img)
+            if raw_text and len(raw_text.strip()) > 3:
+                recognized_query = raw_text
+        except Exception:
+            pass
+
+    return recognized_query
+
+
+def _simulate_image_workflow(task_id: str, image_path: str, initial_ocr: str = '') -> None:
+    """Consolidated background worker: Identify -> Clean -> Scrape -> Persist."""
+    try:
+        logger.info('[TASK %s] Starting background image workflow. Path: %s', task_id, image_path)
+        
+        # Step 1: Visual Identification
+        query = initial_ocr
+        if not query or len(query.strip()) < 3:
+            logger.info('[TASK %s] Identification stage START (Lens/OCR).', task_id)
+            query = _perform_visual_identification(image_path)
+            if not query:
+                query = os.path.basename(image_path)
+                logger.warning('[TASK %s] Identification stage FAILED. Falling back to filename: %s', task_id, query)
+            else:
+                logger.info('[TASK %s] Identification stage SUCCESS. Identified: %s', task_id, query)
+        
+        # Update task state with the identified query ASAP for the poller
         cleaned = normalize_query(query)
+        clean_q = cleaned.get('clean', '').strip()
+        
+        if not clean_q or len(clean_q) < 3:
+             logger.warning('[TASK %s] Identification failed to produce a valid query. Aborting.', task_id)
+             _IMAGE_TASKS[task_id].update({'status': 'FAILURE', 'error': 'Could not recognize any product in this image. Please try a clearer photo with visible text.'})
+             return
+
+        _IMAGE_TASKS[task_id]['query'] = clean_q
+        
+        # Step 2: Search/Scrape 
+        logger.info('[TASK %s] Scraper stage START. Query: %s', task_id, clean_q)
         service = ScraperService()
-        clean_q = cleaned.get('clean') or query
         results = service.scrape(clean_q)
+        
         if not results:
             msg = service.last_error or 'Price data unavailable via SerpAPI.'
-            _IMAGE_TASKS[task_id] = {'status': 'FAILURE', 'results': [], 'chart': {}, 'error': msg}
+            logger.warning('[TASK %s] Scraper stage FAILED. Msg: %s', task_id, msg)
+            _IMAGE_TASKS[task_id].update({'status': 'FAILURE', 'error': msg})
             return
 
+        logger.info('[TASK %s] Scraper stage SUCCESS. Results: %d', task_id, len(results))
         persisted = service.persist_results(clean_q, cleaned.get('raw'), results)
         product = persisted.get('product')
         chart = _chart_payload(product_id=product.id) if product else {}
-        _IMAGE_TASKS[task_id] = {'status': 'SUCCESS', 'results': persisted.get('rows', []), 'chart': chart, 'error': None}
-    except Exception as exc:  # pragma: no cover - best-effort demo
-        _IMAGE_TASKS[task_id] = {'status': 'FAILURE', 'results': [], 'chart': {}, 'error': str(exc)}
+        
+        _IMAGE_TASKS[task_id].update({
+            'status': 'SUCCESS', 
+            'results': persisted.get('rows', []), 
+            'chart': chart, 
+            'error': None
+        })
+        logger.info('[TASK %s] Workflow COMPLETE.', task_id)
+    except Exception as exc:
+        logger.exception('[TASK %s] UNEXPECTED FATAL ERROR.', task_id)
+        _IMAGE_TASKS[task_id].update({'status': 'FAILURE', 'error': str(exc)})
 
 
 @login_required
@@ -1219,243 +1349,142 @@ def api_image_search(request):
             fh.write(chunk)
 
     task_id = uuid.uuid4().hex
-    _IMAGE_TASKS[task_id] = {'status': 'PENDING', 'results': [], 'chart': {}, 'error': None}
+    # Initialize task state
+    _IMAGE_TASKS[task_id] = {'status': 'PENDING', 'results': [], 'chart': {}, 'error': None, 'query': ''}
 
-    # === HYBRID IMAGE RECOGNITION ===
-    # Strategy 1: SerpAPI Google Lens (visual product identification)
-    # Strategy 2: Tesseract OCR fallback (for screenshots with text)
-    recognized_query = ''
-
-    # --- Strategy 1: Google Lens via SerpAPI ---
+    # Start background identification & search immediately
     try:
-        SERPAPI_API_KEY = getattr(settings, 'SERPAPI_API_KEY', '') or os.getenv('SERPAPI_API_KEY', '')
-        if SERPAPI_API_KEY:
-            # Step A: Upload image to freeimage.host (free, global) to get a public URL
-            # SerpAPI Google Lens requires a publicly accessible URL
-            public_url = None
-            try:
-                import base64
-                with open(path, 'rb') as img_file:
-                    img_b64 = base64.b64encode(img_file.read()).decode('utf-8')
-                
-                upload_resp = requests.post(
-                    'https://freeimage.host/api/1/upload',
-                    data={
-                        'key': '6d207e02198a847aa98d0a2a901485a5',  # Public demo key
-                        'source': img_b64,
-                        'format': 'json',
-                    },
-                    timeout=20
-                )
-                if upload_resp.status_code == 200:
-                    upload_data = upload_resp.json()
-                    if upload_data.get('image', {}).get('url'):
-                        public_url = upload_data['image']['url']
-                        logger.info('Image uploaded for Lens: %s', public_url)
-                    else:
-                        logger.warning('FreeImage upload not successful: %s', upload_data)
-                else:
-                    logger.warning('FreeImage upload failed with status %s', upload_resp.status_code)
-            except Exception as upload_err:
-                logger.warning('Temp image upload failed: %s', upload_err)
-
-            # Step B: Query Google Lens with the public URL
-            if public_url:
-                lens_params = {
-                    'engine': 'google_lens',
-                    'url': public_url,
-                    'api_key': SERPAPI_API_KEY,
-                    'hl': 'en',
-                    'country': 'in',
-                }
-                
-                lens_resp = requests.get('https://serpapi.com/search.json', params=lens_params, timeout=25)
-                if lens_resp.status_code == 200:
-                    lens_data = lens_resp.json()
-                    
-                    # Extract product name from knowledge_graph
-                    knowledge = lens_data.get('knowledge_graph', {})
-                    if isinstance(knowledge, list) and knowledge:
-                        recognized_query = knowledge[0].get('title', '')
-                    elif isinstance(knowledge, dict):
-                        recognized_query = knowledge.get('title', '')
-                    
-                    # Fallback: visual_matches
-                    if not recognized_query:
-                        visual_matches = lens_data.get('visual_matches', [])
-                        if visual_matches:
-                            recognized_query = visual_matches[0].get('title', '')
-                    
-                    # Fallback: search_by_image_results
-                    if not recognized_query:
-                        search_results = lens_data.get('search_by_image_results', [])
-                        if search_results:
-                            recognized_query = search_results[0].get('title', '')
-                            
-                    logger.info('GOOGLE LENS recognized: %s', recognized_query)
-                else:
-                    logger.warning('Google Lens API returned status %s: %s', lens_resp.status_code, lens_resp.text[:200])
-    except Exception as lens_err:
-        logger.warning('Google Lens recognition failed: %s', lens_err)
-
-    # --- Strategy 2: Tesseract OCR Fallback (for screenshots/text-heavy images) ---
-    if not recognized_query or len(recognized_query.strip()) < 3:
-        try:
-            import pytesseract
-            from PIL import Image
-            from django.conf import settings as dj_settings
-            img = Image.open(path)
-            tesseract_path = getattr(dj_settings, 'TESSERACT_CMD', None)
-            if tesseract_path:
-                pytesseract.pytesseract.tesseract_cmd = tesseract_path
-            raw_text = pytesseract.image_to_string(img)
-            if raw_text and len(raw_text.strip()) > 3:
-                recognized_query = raw_text
-                logger.info('Tesseract fallback extracted: %s', recognized_query[:100])
-        except Exception as ocr_err:
-            logger.warning('Tesseract OCR fallback failed: %s', ocr_err)
-
-    if not recognized_query or len(recognized_query.strip()) < 3:
-        # If AI completely failed to identify the image (e.g. FreeImage down, SerpAPI out of credits, or blank image)
-        return JsonResponse({'error': 'AI failed to identify product or API limits reached. Try a clearer image or check SerpAPI credits.'}, status=400)
-
-    cleaned = normalize_query(recognized_query)
-    logger.info('IMAGE SEARCH final query: %s', cleaned.get('clean'))
-
-    # Try to queue a Celery task; fallback to background thread if Celery not available
-    try:
-        async_result = image_search_task.apply_async(args=(path, cleaned.get('clean')), task_id=task_id)
-        # store placeholder that will be updated by polling via result() when ready
-        _IMAGE_TASKS[task_id] = {'status': 'PENDING', 'celery_id': async_result.id, 'results': [], 'chart': {}, 'error': None}
+        # Pass path to image_search_task; it will perform identification internally
+        image_search_task.apply_async(args=(path, None), task_id=task_id)
     except Exception:
-        # fallback to thread that runs the same flow
-        t = threading.Thread(target=_simulate_image_workflow, args=(task_id, path, cleaned.get('clean')), daemon=True)
+        # Fallback to local thread
+        t = threading.Thread(target=_simulate_image_workflow, args=(task_id, path), daemon=True)
         t.start()
 
     is_htmx = request.headers.get('HX-Request') == 'true' or request.META.get('HTTP_HX_REQUEST') == 'true'
     if is_htmx:
         return render(request, 'dashboard/partials/image_loading.html', {'task_id': task_id}, status=202)
-    # Return OCR text (if any) so frontend can populate the search box
-    return JsonResponse({'task_id': task_id, 'ocr_text': cleaned.get('clean')}, status=202)
+    
+    return JsonResponse({'task_id': task_id}, status=202)
 
 
 @login_required
 def api_result(request, task_id: str):
-    """Poll endpoint for image workflow results.
-
-    Returns JSON with shape: { status: 'PENDING'|'SUCCESS'|'FAILURE', results: [...], chart: {...}, error: None }
-    """
-    # Prefer cached task payload from Redis if available (written by Celery worker)
-    try:
-        import redis
-        import json as _json
-        r = redis.Redis(host='127.0.0.1', port=6379, db=0, socket_timeout=5)
-        # Temporary test injection when calling TEST123
+    """Poll endpoint for image workflow results. Returns JSON for the JS poller."""
+    
+    # Check memory cache/Celery for task
+    task = _IMAGE_TASKS.get(task_id, {})
+    if not task:
+        return JsonResponse({'status': 'FAILURE', 'error': 'Task not found'}, status=404)
+    
+    # Optional Redis/Celery status check
+    if task.get('celery_id'):
+        from celery.result import AsyncResult
         try:
-            if task_id == 'TEST123' and not r.exists(f"pricecom:task:{task_id}"):
-                sample = {"status": "SUCCESS", "results": [{"name": "TEST PRODUCT", "amz": "₹1,000", "flip": "₹950", "min": "₹950", "delta": "DROP_50", "status": "LIVE"}], "chart": {}}
-                r.setex(f"pricecom:task:{task_id}", 3600, _json.dumps(sample))
-        except Exception:
-            pass
-
-        raw = r.get(f"pricecom:task:{task_id}")
-        logger.debug('API RESULT RAW REDIS: %s', raw)
-        if raw:
-            try:
-                cached = _json.loads(raw)
-                try:
-                    logger.debug('API RESULT CACHED: %s', _json.dumps(cached, ensure_ascii=True))
-                except Exception:
-                    logger.debug('API RESULT CACHED: <unprintable>')
-                # If Redis already has results, render/return immediately
-                if isinstance(cached, dict) and cached.get('results'):
-                    results = cached.get('results') or []
-                    html = render(request, 'dashboard/partials/product_rows.html', {'products': results}).content.decode('utf-8')
-                    if request.headers.get('HX-Request') == 'true' or request.META.get('HTTP_HX_REQUEST') == 'true':
-                        return HttpResponse(html)
-                    return JsonResponse(cached)
-                # Otherwise populate in-memory fallback for later logic
-                redis_task = {'status': cached.get('status', 'PENDING'), 'results': cached.get('results', []), 'chart': cached.get('chart', {}), 'error': cached.get('error')}
-                _IMAGE_TASKS[task_id] = redis_task
-            except Exception:
-                redis_task = None
-                pass
-    except Exception as e:
-        print('API RESULT REDIS ERROR:', e)
-        # If Redis not available, fall back to in-memory store
-        pass
-
-    # Prefer Redis-populated task when available
-    task = locals().get('redis_task') or _IMAGE_TASKS.get(task_id)
-    print("API RESULT TASK:", task_id)
-    try:
-        import json as _print_json
-        print("REDIS DATA:", _print_json.dumps(task, ensure_ascii=True) if task is not None else None)
-    except Exception:
-        print("REDIS DATA: <unprintable>")
-    if task is None:
-        if request.headers.get('HX-Request') == 'true' or request.META.get('HTTP_HX_REQUEST') == 'true':
-            return HttpResponse('<tr><td colspan="6" class="px-4 py-4 text-center text-brand-textMuted">Task not found</td></tr>', status=404)
-        return JsonResponse({'error': 'not found'}, status=404)
-
-    # If task was enqueued to Celery, check result and populate
-    celery_id = task.get('celery_id') if isinstance(task, dict) else None
-    if celery_id:
-        try:
-            from celery.result import AsyncResult
-            res = AsyncResult(celery_id)
+            res = AsyncResult(task['celery_id'])
             if res.ready():
                 data = res.result or {}
-                # normalize into our task dict
-                task.update({'status': data.get('status', 'SUCCESS' if data else 'SUCCESS'), 'results': data.get('results', []), 'chart': data.get('chart', {}), 'error': data.get('error')})
+                task.update({
+                    'status': 'SUCCESS' if res.status == 'SUCCESS' else 'FAILURE',
+                    'results': data.get('results', []),
+                    'chart': data.get('chart', {}),
+                    'error': data.get('error') or (str(data) if res.status == 'FAILURE' else None)
+                })
                 _IMAGE_TASKS[task_id] = task
-                task = _IMAGE_TASKS[task_id]
         except Exception:
-            # keep existing PENDING state
             pass
 
-    is_htmx = request.headers.get('HX-Request') == 'true' or request.META.get('HTTP_HX_REQUEST') == 'true'
-    if not is_htmx:
-        # allow JSON format explicitly
-        if request.GET.get('format') == 'json':
-            return JsonResponse(_IMAGE_TASKS[task_id])
-        return JsonResponse(_IMAGE_TASKS[task_id])
+    status_val = task.get('status', 'PENDING')
+    query = task.get('query', '')
+    
+    # Prepare payload exactly as dashboard_base.html expects it
+    payload = {
+        'status': status_val,
+        'product_name': query,
+        'results': task.get('results', []),
+        'chart': task.get('chart', {}),
+        'error': task.get('error')
+    }
+    
+    return JsonResponse(payload)
 
-    # HTMX response: return table rows for success, otherwise status row
-    status_val = task.get('status') if isinstance(task, dict) else None
-    chart_payload = task.get('chart') if isinstance(task, dict) else None
 
-    # If task contains results, render them regardless of explicit SUCCESS state
-    if isinstance(task, dict) and task.get('results'):
-        results = task.get('results') or []
-        if not results:
-            return HttpResponse('<tr><td colspan="6" class="px-4 py-4 text-center text-brand-textMuted">No results found</td></tr>')
-            
-        results = _inject_watchlist_status(request.user, results)
-        html = render(request, 'dashboard/partials/product_rows.html', {'products': results}).content.decode('utf-8')
+@login_required
+def api_image_search_form(request):
+    """Serve the image upload card so the user can search again without reloading."""
+    return render(request, 'dashboard/partials/image_upload_card.html')
 
-        if chart_payload and isinstance(chart_payload, dict) and chart_payload.get('series'):
-            html += """
-<script>
-if(window.ApexCharts){
-    try{
-        const series = %s;
-        const categories = %s;
-        ApexCharts.exec('priceHistoryChart', 'updateSeries', series);
-        if(categories){ ApexCharts.exec('priceHistoryChart', 'updateOptions', { xaxis: { categories: categories } }); }
-    }catch(e){ console.error('chart update error', e); }
-}
-</script>
-""" % (json.dumps(chart_payload.get('series')), json.dumps(chart_payload.get('categories')))
 
-        if request.headers.get('HX-Request') == 'true' or request.META.get('HTTP_HX_REQUEST') == 'true':
-            return HttpResponse(html)
-        # Non-HTMX callers get JSON
-        return JsonResponse(task)
-
-    if status_val == 'FAILURE':
-        msg = task.get('error') or 'Processing failed'
-        return HttpResponse(f'<tr><td colspan="6" class="px-4 py-4 text-center text-[#ff99b5]">{msg}</td></tr>', status=500)
-
-    # Pending state fallback
-    return HttpResponse('<tr><td colspan="6" class="px-4 py-8 text-center text-brand-textMuted"><span class="h-4 w-4 border-2 border-brand-accent border-t-transparent inline-block animate-spin mr-2"></span>Processing image…</td></tr>', status=202)
+@login_required
+@require_http_methods(["POST"])
+def api_activate_dip_alert(request):
+    """Create a price drop alert for a product.
+    
+    Accepts product_id via POST. Calculates a 10% drop target from 
+    the product's current lowest price and creates a Watchlist alert.
+    """
+    product_id = request.POST.get('product_id')
+    
+    if not product_id:
+        # Fallback: use the most recently updated product
+        product = Product.objects.order_by('-updated_at').first()
+    else:
+        product = Product.objects.filter(id=product_id).first()
+    
+    if not product:
+        return HttpResponse(
+            '<div class="text-[#ff99b5] text-xs font-mono p-2 text-center">'
+            '<i class="fas fa-exclamation-triangle mr-1"></i> No product found. Search for a product first.</div>',
+            status=400
+        )
+    
+    # Calculate target: 10% below current lowest price
+    current_price = product.current_lowest_price
+    if not current_price or current_price <= 0:
+        # Try to get from store prices
+        from apps.scraper.models import StorePrice
+        sp = StorePrice.objects.filter(product=product, current_price__gt=0).order_by('current_price').first()
+        current_price = sp.current_price if sp else None
+    
+    if not current_price:
+        return HttpResponse(
+            '<div class="text-[#ff99b5] text-xs font-mono p-2 text-center">'
+            '<i class="fas fa-exclamation-triangle mr-1"></i> No price data available for this product yet.</div>',
+            status=400
+        )
+    
+    drop_pct = Decimal('0.10')  # 10% drop
+    target_price = (current_price * (1 - drop_pct)).quantize(Decimal('0.01'))
+    
+    # Create or update watchlist entry with target
+    watchlist_item, created = Watchlist.objects.get_or_create(
+        user=request.user,
+        product=product,
+        defaults={
+            'added_price': current_price,
+            'last_recorded_price': current_price,
+            'target_price': target_price,
+        },
+    )
+    
+    if not created:
+        watchlist_item.target_price = target_price
+        watchlist_item.last_recorded_price = current_price
+        watchlist_item.last_notified_price = None
+        watchlist_item.save(update_fields=['target_price', 'last_recorded_price', 'last_notified_price'])
+    
+    # Return success confirmation HTML
+    formatted_target = f"₹{int(target_price):,}"
+    formatted_current = f"₹{int(current_price):,}"
+    
+    html = f'''
+    <div class="w-full mt-6 py-3 border border-brand-success bg-brand-success/10 text-brand-success font-mono text-xs uppercase tracking-widest text-center space-y-1">
+        <div><i class="fas fa-bell mr-1"></i> DIP ALERT ACTIVE</div>
+        <div class="text-[10px] text-brand-textMuted normal-case tracking-normal">
+            Watching <span class="text-brand-textHighlight">{product.name[:30]}</span><br>
+            Alert when price drops below <span class="text-brand-success font-bold">{formatted_target}</span>
+            <span class="text-brand-textMuted">(current: {formatted_current})</span>
+        </div>
+    </div>
+    '''
+    return HttpResponse(html)
