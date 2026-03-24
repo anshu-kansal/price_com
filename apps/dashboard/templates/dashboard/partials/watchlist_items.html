@@ -1,0 +1,38 @@
+{% for item in items %}
+<div class="group relative py-3 mb-2 border-b border-[#1A1F28] last:border-0">
+    <div class="flex justify-between items-center mb-1">
+        <span class="text-[#e2e8f0] text-sm font-bold truncate pr-2" title="{{ item.product_name }}">{{ item.product_name }}</span>
+        <!-- Remove Button -->
+        <button hx-post="/scraper/watchlist/toggle/" 
+                hx-vals='{"product_id": "{{ item.product_id }}"}' 
+                hx-target="closest div.group" 
+                hx-swap="outerHTML" 
+                class="text-[#ff3366] hover:text-[#ff0033] text-xs transition duration-200">
+            <i class="fas fa-times"></i> Remove
+        </button>
+    </div>
+    <div class="flex justify-between items-center font-mono">
+        <div class="text-lg font-bold text-white tabular-nums">₹{{ item.current_lowest_price|default:"N/A"|floatformat:2 }}</div>
+        
+        <div class="flex items-center space-x-2">
+            <label class="text-[#64748b] text-[10px] uppercase">TGT Prc</label>
+            <input type="number" 
+                   name="target_price" 
+                   value="{{ item.target_price|default_if_none:'' }}"
+                   step="0.01"
+                   class="bg-[#0a0d14] border border-[#1A1F28] text-white text-xs px-2 py-1 w-20 text-right focus:outline-none focus:border-[#00e5ff] transition"
+                   hx-post="/dashboard/api/watchlist/set-target/"
+                   hx-trigger="change"
+                   hx-vals='{"watchlist_id": "{{ item.watchlist_id }}"}'
+                   hx-swap="none">
+        </div>
+    </div>
+</div>
+{% empty %}
+<p class="text-center text-[#64748b] text-xs font-mono py-4">NO WATCHLIST SIGNALS AVAILABLE</p>
+{% endfor %}
+
+<script>
+    // Alpine variable update via script tag injection trick
+    window.dispatchEvent(new CustomEvent('update-watchlist-count', { detail: Number("{{ items|length }}") }));
+</script>

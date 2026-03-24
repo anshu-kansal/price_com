@@ -1,0 +1,161 @@
+PriceCom Project Overview
+========================
+
+Purpose
+-------
+PriceCom is a real-time e-commerce intelligence engine built on Django. It merges price data from multiple online retailers (currently Amazon and Flipkart) into a unified semantic price matrix, applies analytics and alerts, and presents an interactive dashboard with watchlist and predictive indicators.
+
+Main modules
+------------
+1. `config/` - Django settings, URL routing, WSGI/ASGI and Celery integration.
+2. `apps/accounts/` - custom user model and authentication views (login/register), refers to allauth social auth and local auth.
+3. `apps/dashboard/` - UI panels, search UI, watchlist, alerts, API endpoints, and product detail page.
+4. `apps/scraper/` - core scraping, persistence model, watchlist events, price history, signal chain.
+5. `core/` - shared utilities and base infrastructure used by other apps.
+6. `templates/` + `static/` - front-end content and themes.
+7. `verifytest/` - acceptance and test scripts.
+
+Authentication
+--------------
+- Uses `django-allauth` with local account and social accounts (Google, GitHub).
+- `config/settings.py` includes:
+  - `INSTALLED_APPS` with `allauth`, `socialaccount`, `socialaccount.providers.google`.
+  - `AUTHENTICATION_BACKENDS` includes `ModelBackend` and `allauth` backend.
+  - `ACCOUNT_LOGIN_METHODS = {'email'}`, `ACCOUNT_SIGNUP_FIELDS = ['email']`, `SOCIALACCOUNT_AUTO_SIGNUP = True`, `SOCIALACCOUNT_LOGIN_ON_GET = True`.
+  - `LOGIN_REDIRECT_URL = '/dashboard/'`, `LOGOUT_REDIRECT_URL = '/accounts/login/'`.
+- In templates, login and register include `provider_login_url 'google'` and button with minimal form.
+- Custom adapter in `apps/accounts/adapters.py` overrides social signup flow to skip the intermediate page and use data from Google directly.
+
+Data models and core pipeline
+----------------------------
+`apps/scraper/models.py` contains:
+- `Product`: canonical product, current_lowest_price, trend_indicator, metadata, price vector.
+- `StorePrice`: store-specific price record, product FK, current_price, is_available, update timestamp.
+- `PriceHistory`: historical record of `StorePrice` snapshots (audit trail)
+- `Watchlist` and `PriceAlert`: user-targeted alert rules.
+
+Key behavior:
+- `StorePrice.save()` triggers `product.update_lowest_price()` inside model method.
+- `update_lowest_price()` calls watchlist evaluation and potentially alert dispatch.
+- `Product` has fuzzy matching and update loops to maintain canonical information.
+
+Scraping and data acquisition
+-----------------------------
+`apps/scraper/services/services.py` provides `ScraperService`:
+- `search_all(query)`: hit SerpAPI or fallback scrapers for shopping results.
+- `_serp_scrape(query)` uses API key (`SERPAPI_API_KEY`) from settings / env.
+- Normalization of price and link, home to `StorePrice` format.
+
+`apps/scraper/services/manager.py`:
+- `get_coordinated_data(search_query)` applies DB lookup; if no existing record, calls `ScraperService`.
+- If stale data older than 6 hours, triggers background rescrape via `run_scraper_async()`.
+- Returns results list for dashboard display.
+
+`apps/scraper/tasks.py` + Celery:
+- Asynchronous periodic and on-demand scraping tasks.
+- Redis broker at `redis://127.0.0.1:6379/0` (set in `config/settings.py`).
+- Celery result backend same Redis DB.
+
+Dashboard and APIs
+------------------
+`apps/dashboard/urls.py` includes:
+- `/dashboard/` -> `dashboard_home`.
+- `/dashboard/product/<int:id>/` -> `product_detail_page`.
+- `/dashboard/api/products/` -> product list rows for HTMX table.
+- `/dashboard/api/products/<int:id>/history/` -> product history, chart, panel.
+- `/dashboard/api/search/` -> `api_search` handles search POST and returns results.
+- `/dashboard/api/image-search/` -> OCR image upload flow.
+
+`apps/dashboard/views.py`:
+- `dashboard_home` renders `dashboard/index.html` with metrics, predictions, chart seed.
+- `product_detail_page` renders `dashboard/product_details.html` with product detail info and charts.
+- `api_search` calls `ScraperService.scrape`, processes results, saves with `persist_results`, and returns HTMX or normal result view.
+- `api_products` serves product rows table with current price states.
+- `api_product_history` loads product details and optionally returns HTMX partial panel.
+
+HTMX structure
+--------------
+- Search form in `apps/dashboard/templates/cotton/search_panel.html` posts to `/dashboard/api/search/` with `hx-target='#search-results'`.
+- `product_rows.html` uses `hx-get` to fetch product history panel into `#product-detail-panel`.
+- Details button in our final implementation goes to dedicated details route.
+
+Front-end components
+--------------------
+- `dashboard/index.html` includes:
+  - `<c-alert_ticker />` live horizontal ticker (alerts stream)
+  - `<c-search_panel />` search bar block.
+  - `c-ai_predictor`, `c-watchlist`, `c-purchase_chart`, `c-opportunity_feed` panels.
+- `product_detail_panel.html` and `product_details.html` show full details, charts, store comparisons.
+- Color theme and fonts are dark mode terminal style.
+
+Watchlist and alerts
+--------------------
+- `dashboard/watchlist` view sorts and filters watchlist items.
+- `set_price_alert_from_product` saves watchlist entry via POST and triggers store price updates.
+- Alerts are generated in `apps/scraper/services/watchlist_monitor.py` and may send emails via `smtp_handler.py`.
+
+OCR and image search
+--------------------
+- `api_image_search` accepts image upload, uses pytesseract (if installed) to extract text, then routes into search query.
+- If not using Celery, runs fallback sync in `_simulate_image_workflow`.
+
+Data integrity, security and tools
+---------------------------------
+- `apps/scraper/security_utils.py` and other modules have SSRF checks and request sanitation.
+- Audit and performance monitoring in `apps/dashboard/services` / `core/`.
+- `verifytest/` contains acceptance scenarios: login, search, watchlist, alerts, OCR.
+
+Deployment and local setup (exact commands)
+------------------------------------------
+1. create virtualenv:
+    python -m venv .venv
+2. activate (Windows):
+    .venv\Scripts\activate
+3. install deps:
+    pip install -r requirements.txt
+4. set env:
+    set DJANGO_SECRET_KEY=... (or .env)
+    set SERPAPI_API_KEY=...
+    set DJANGO_DEBUG=True
+5. migrate:
+    python manage.py migrate
+6. run server:
+    python manage.py runserver
+7. start celery (if required):
+    celery -A config worker -l info
+
+Key files to inspect for knowledge transfer
+------------------------------------------
+- `apps/scraper/models.py` (business model + signal chain)
+- `apps/scraper/services/services.py` (scraper pipeline)
+- `apps/scraper/services/manager.py` (query coordination, staleness logic)
+- `apps/dashboard/views.py` (dashboard and API behavior)
+- `apps/dashboard/templates/*` (UI, details, search, ticker)
+- `config/settings.py` (login redirect, social auth, Celery, Redis)
+- `apps/accounts/adapters.py` (Google social auth override)
+- `apps/dashboard/urls.py` (routing, products->details)
+
+Testing and verification
+------------------------
+- `python manage.py test` or custom scripts in `verifytest/`.
+- Smoke tests in `tests/` (image_search_test, smoke_test).
+
+How the flow works end-to-end
+-----------------------------
+1. user hits login (local or Google) -> dashboard redirect.
+2. user enters query in search panel.
+3. `/dashboard/api/search/` performs `ScraperService.scrape()` via SerpAPI.
+4. results get persisted in DB (`Product/StorePrice/PriceHistory`) through `persist_results`.
+5. dashboard row view is rendered; product has detail link.
+6. clicking detail opens `dashboard/product_details.html`, which includes chart and state.
+7. user can set alert with `set_price_alert_from_product`; creates watchlist entry and trigger success.
+8. background Celery tasks keep old data refreshed and watchlist alerts dispatched.
+
+How to add or change features
+-----------------------------
+- Add new retailer scraper in `apps/scraper/scraper_engine.py` with source-specific parser.
+- Update fuzzy matching in `apps/scraper/matcher.py`.
+- Add new dashboard panel in `apps/dashboard/templates/dashboard/index.html` and related `views.py` context.
+
+
+=== END ===

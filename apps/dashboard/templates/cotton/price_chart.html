@@ -1,0 +1,121 @@
+<div class="terminal-panel p-4 h-full flex flex-col bg-[#05080c]">
+    <div class="flex items-center justify-between mb-4 pb-2 border-b border-brand-border">
+        <div>
+            <h2
+                class="text-sm font-bold text-brand-textHighlight flex items-center font-mono uppercase tracking-widest">
+                <span class="text-brand-accent mr-2">::</span> TELEMETRY_FEED
+            </h2>
+        </div>
+        <div class="flex items-center bg-[#0a0d14] border border-brand-border h-6">
+            <button
+                class="px-3 h-full text-[10px] font-mono text-[#080B0F] bg-brand-accent border-r border-brand-border">7D</button>
+            <button
+                class="px-3 h-full text-[10px] font-mono text-brand-textMuted hover:text-brand-textHighlight transition-none border-r border-brand-border">1M</button>
+            <button
+                class="px-3 h-full text-[10px] font-mono text-brand-textMuted hover:text-brand-textHighlight transition-none">YTD</button>
+        </div>
+    </div>
+
+    <div class="flex-1 w-full bg-[#080B0F] border border-brand-border min-h-[300px] relative overflow-hidden"
+        id="chart-container">
+        <!-- We use standard div for apexcharts to bind to -->
+        <div id="price-history-chart" class="w-full h-full"></div>
+
+        <!-- Grid overlay to simulate terminal -->
+        <div class="absolute inset-0 pointer-events-none"
+            style="background-image: linear-gradient(#1A1F28 1px, transparent 1px), linear-gradient(90deg, #1A1F28 1px, transparent 1px); background-size: 40px 40px; opacity: 0.3;">
+        </div>
+    </div>
+
+    <div class="mt-4 font-mono text-[10px] uppercase tracking-widest text-right">
+        <span class="text-brand-textMuted">Search for a product to see per-store price trends</span>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof ApexCharts === 'undefined') {
+            return;
+        }
+
+        const seedEl = document.getElementById('chart-seed-data');
+        const seedData = seedEl ? JSON.parse(seedEl.textContent) : null;
+        const initialSeries = (seedData && seedData.series && seedData.series.length)
+            ? seedData.series
+            : [
+                { name: 'Amazon', data: [0, 0, 0, 0, 0, 0, 0] },
+                { name: 'Flipkart', data: [0, 0, 0, 0, 0, 0, 0] }
+            ];
+        const initialCategories = (seedData && seedData.categories && seedData.categories.length)
+            ? seedData.categories
+            : ['-', '-', '-', '-', '-', '-', '-'];
+
+        const chart = new ApexCharts(document.querySelector("#price-history-chart"), {
+            series: initialSeries,
+            chart: {
+                id: 'priceHistoryChart',
+                height: '100%',
+                type: 'area',
+                background: 'transparent',
+                fontFamily: '"JetBrains Mono", monospace',
+                animations: { enabled: true, easing: 'easeinout', speed: 600 },
+                toolbar: { show: false },
+                zoom: { enabled: false }
+            },
+                colors: ['#00e5ff', '#00ff9d', '#ff3366', '#ffb000', '#a855f7'],
+                fill: {
+                    type: 'gradient',
+                    gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.0, stops: [0, 100] }
+                },
+                dataLabels: { enabled: false },
+                stroke: { curve: 'smooth', width: 2 },
+                grid: {
+                    borderColor: '#1A1F28',
+                    strokeDashArray: 0,
+                    xaxis: { lines: { show: true } },
+                    yaxis: { lines: { show: true } }
+                },
+                xaxis: {
+                    categories: initialCategories,
+                    axisBorder: { color: '#1A1F28' },
+                    axisTicks: { color: '#1A1F28' },
+                    labels: { style: { colors: '#64748b', fontSize: '10px' }, rotate: -45 },
+                    crosshairs: {
+                        show: true,
+                        position: 'back',
+                        stroke: { color: '#ffb000', width: 1, dashArray: 4 }
+                    }
+                },
+                yaxis: {
+                    labels: {
+                        style: { colors: '#64748b', fontSize: '10px' },
+                        formatter: (val) => '₹' + Number(val).toLocaleString('en-IN')
+                    }
+                },
+                legend: {
+                    show: true,
+                    position: 'top',
+                    horizontalAlign: 'right',
+                    labels: { colors: '#94a3b8' },
+                    fontSize: '11px',
+                    fontFamily: '"JetBrains Mono", monospace',
+                    markers: { radius: 2, width: 8, height: 8 },
+                    itemMargin: { horizontal: 10 },
+                },
+                tooltip: {
+                    theme: 'dark',
+                    shared: true,
+                    intersect: false,
+                    marker: { show: true },
+                    x: { show: true },
+                    y: {
+                        formatter: (val) => val != null ? '₹' + Number(val).toLocaleString('en-IN') : 'N/A'
+                    }
+                },
+                markers: { size: 3, strokeWidth: 0, hover: { size: 6 } },
+            });
+
+        chart.render();
+        window.priceHistoryChartRef = chart;
+    });
+</script>

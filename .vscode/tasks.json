@@ -1,0 +1,11 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Django Server",
+			"type": "shell",
+			"command": "python manage.py runserver",
+			"isBackground": true
+		}
+	]
+}

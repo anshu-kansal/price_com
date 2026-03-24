@@ -1,0 +1,410 @@
+{% extends "dashboard/dashboard_base.html" %}
+
+{% block title %}{{ product.name }} | PRICECOM{% endblock %}
+
+{% block content %}
+<div class="w-full bg-brand-base flex flex-col">
+
+    <!-- Header Navigation -->
+    <div class="border-b border-brand-border bg-[#05070c] px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard:index' %}" class="text-brand-textMuted hover:text-brand-accent transition-none">
+                <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+            </a>
+        </div>
+        <h1 class="text-xl font-semibold text-brand-textHighlight">Product Details</h1>
+        <div></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 overflow-y-auto p-6">
+        <div class="max-w-7xl mx-auto space-y-6">
+
+            <!-- Product Header -->
+            <div class="bg-[#05070c] border border-brand-border rounded-lg p-6">
+                <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                    <!-- Product Info -->
+                    <div class="flex-1">
+                        <h2 class="text-3xl font-semibold text-brand-textHighlight mb-2">
+                            {{ product.name }}
+                        </h2>
+                        <p class="text-sm text-brand-textMuted mb-4">
+                            {% if product.category %}
+                                Category: <span class="text-brand-accent">{{ product.category.name }}</span>
+                            {% endif %}
+                        </p>
+
+                        <!-- Key Metrics -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                            <div class="bg-[#080B0F] border border-brand-border/50 rounded p-3">
+                                <p class="text-[11px] text-brand-textMuted/70 uppercase tracking-wide">Current Lowest</p>
+                                <p class="text-lg font-semibold text-brand-success mt-1">{{ current_lowest_price_display }}</p>
+                            </div>
+                            <div class="bg-[#080B0F] border border-brand-border/50 rounded p-3">
+                                <p class="text-[11px] text-brand-textMuted/70 uppercase tracking-wide">Highest Price</p>
+                                <p class="text-lg font-semibold text-brand-accent mt-1">{{ insights.highest_price_display }}</p>
+                            </div>
+                            <div class="bg-[#080B0F] border border-brand-border/50 rounded p-3">
+                                <p class="text-[11px] text-brand-textMuted/70 uppercase tracking-wide">Average Price</p>
+                                <p class="text-lg font-semibold text-brand-textHighlight mt-1">{{ insights.avg_price_display }}</p>
+                            </div>
+                            <div class="bg-[#080B0F] border border-brand-border/50 rounded p-3">
+                                <p class="text-[11px] text-brand-textMuted/70 uppercase tracking-wide">Price Change</p>
+                                <p class="text-lg font-semibold {% if insights.change_pct_display == 'N/A' %}text-brand-textMuted{% elif '+' in insights.change_pct_display %}text-red-400{% else %}text-emerald-400{% endif %} mt-1">
+                                    {{ insights.change_pct_display }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex flex-col gap-2 lg:w-56">
+                        {% if is_watchlisted %}
+                            <button
+                                class="w-full bg-brand-accent text-[#05070c] font-semibold py-2 px-4 rounded hover:bg-brand-accent/90 transition-none text-sm"
+                                hx-post="/scraper/watchlist/toggle/"
+                                hx-vals='{"product_id": "{{ product.id }}"}'
+                                hx-swap="outerHTML"
+                                onclick="event.preventDefault(); event.stopPropagation();">
+                                <i class="fas fa-heart mr-2"></i> Remove from Watchlist
+                            </button>
+                        {% else %}
+                            <button
+                                class="w-full bg-brand-accent/10 border border-brand-accent text-brand-accent font-semibold py-2 px-4 rounded hover:bg-brand-accent hover:text-[#05070c] transition-none text-sm"
+                                hx-post="/scraper/watchlist/toggle/"
+                                hx-vals='{"product_id": "{{ product.id }}"}'
+                                hx-swap="outerHTML"
+                                onclick="event.preventDefault(); event.stopPropagation();">
+                                <i class="far fa-heart mr-2"></i> Add to Watchlist
+                            </button>
+                        {% endif %}
+
+                        <button
+                            type="button"
+                            onclick="openPriceAlertModal();"
+                            class="w-full border border-brand-border/70 bg-[#080B0F] text-brand-textMuted font-semibold py-2 px-4 rounded hover:border-brand-accent hover:text-brand-accent transition-none text-sm">
+                            <i class="fas fa-bell mr-2"></i> Set Price Alert
+                        </button>
+
+                        {% with cheapest=stores|first %}
+                            {% if cheapest and cheapest.product_url %}
+                                <a
+                                    href="{{ cheapest.product_url }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="w-full text-center bg-brand-success/10 border border-brand-success text-brand-success font-semibold py-2 px-4 rounded hover:bg-brand-success hover:text-[#05070c] transition-none text-sm">
+                                    <i class="fas fa-external-link-alt mr-2"></i> View on {{ cheapest.name }}
+                                </a>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Store Price Comparison Chart -->
+            <div class="bg-[#05070c] border border-brand-border rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-brand-textHighlight mb-1">Store Price Comparison</h3>
+                <p class="text-[11px] text-brand-textMuted mb-4 uppercase tracking-wider">Current prices across all sellers</p>
+                <div id="barChart" class="h-72"></div>
+            </div>
+
+            <!-- Price History Chart -->
+            <div class="bg-[#05070c] border border-brand-border rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-brand-textHighlight mb-1">Price History Timeline</h3>
+                <p class="text-[11px] text-brand-textMuted mb-4 uppercase tracking-wider">Historical price trends per store</p>
+                <div id="priceChart" class="h-80"></div>
+            </div>
+
+            <!-- Store Comparison Table -->
+            <div class="bg-[#05070c] border border-brand-border rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-brand-textHighlight mb-4">Available at {{ num_stores }} Store(s)</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-brand-border/50">
+                                <th class="text-left py-3 px-4 font-semibold text-brand-textMuted">Store</th>
+                                <th class="text-right py-3 px-4 font-semibold text-brand-textMuted">Price</th>
+                                <th class="text-left py-3 px-4 font-semibold text-brand-textMuted">Availability</th>
+                                <th class="text-left py-3 px-4 font-semibold text-brand-textMuted">Last Updated</th>
+                                <th class="text-center py-3 px-4 font-semibold text-brand-textMuted">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for store in stores %}
+                            <tr class="border-b border-brand-border/20 hover:bg-[#080B0F] transition-none">
+                                <td class="py-3 px-4 text-brand-textHighlight font-medium">{{ store.name }}</td>
+                                <td class="py-3 px-4 text-right text-brand-success font-semibold">{{ store.price_display }}</td>
+                                <td class="py-3 px-4">
+                                    <span class="text-[11px] {% if store.available %}text-emerald-400{% else %}text-red-400{% endif %} font-semibold">
+                                        {{ store.availability_label }}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4 text-brand-textMuted text-[12px]">
+                                    {% if store.last_updated %}
+                                        {{ store.last_updated|date:"d M Y H:i" }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4 text-center">
+                                    {% if store.product_url %}
+                                        <a href="{{ store.product_url }}" target="_blank" rel="noopener noreferrer"
+                                            class="text-brand-accent hover:text-brand-accent/80 transition-none text-[12px] font-semibold">
+                                            View
+                                        </a>
+                                    {% else %}
+                                        <span class="text-brand-textMuted/50 text-[12px]">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="py-4 px-4 text-center text-brand-textMuted">No stores available</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Price Alert Modal -->
+<div id="price-alert-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-[1px] px-4 flex items-center justify-center" onclick="if(event.target.id === 'price-alert-modal') closePriceAlertModal();">
+    <div class="w-full max-w-md rounded-lg border border-brand-border bg-[#0B0E16] p-6" onclick="event.stopPropagation();">
+        <div class="mb-4 flex items-start justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-white">Set Price Alert</h3>
+                <p class="text-sm text-brand-textMuted mt-1">Get notified when price drops below your target</p>
+            </div>
+            <button type="button" class="text-brand-textMuted hover:text-white text-lg" onclick="closePriceAlertModal();">✕</button>
+        </div>
+
+        <form method="post" action="{% url 'dashboard:set_price_alert_from_product' %}" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+
+            <div>
+                <label for="target-price" class="block text-[11px] uppercase tracking-wider text-brand-textMuted mb-1">Target Price (Required)</label>
+                <input
+                    id="target-price"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    name="target_price"
+                    value="{{ current_lowest_price|default:'' }}"
+                    placeholder="Enter alert price"
+                    class="w-full rounded-lg border border-brand-border bg-[#05070c] px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-accent"
+                >
+                <p class="mt-1 text-[11px] text-brand-textMuted">Current lowest: {{ current_lowest_price_display }}</p>
+            </div>
+
+            <div>
+                <label for="min-price" class="block text-[11px] uppercase tracking-wider text-brand-textMuted mb-1">Min Price (Optional)</label>
+                <input
+                    id="min-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    name="min_price"
+                    placeholder="e.g. 50000"
+                    class="w-full rounded-lg border border-brand-border bg-[#05070c] px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-accent"
+                >
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
+                <button
+                    type="button"
+                    onclick="closePriceAlertModal();"
+                    class="rounded-lg border border-brand-border px-4 py-2 text-xs font-semibold uppercase tracking-wider text-brand-textMuted hover:text-white hover:border-brand-accent transition-none">
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="rounded-lg bg-brand-accent px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#05070c] hover:bg-brand-accent/90 transition-none">
+                    Set Alert
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+    function openPriceAlertModal() {
+        const modal = document.getElementById('price-alert-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+    }
+
+    function closePriceAlertModal() {
+        const modal = document.getElementById('price-alert-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // ── Bar Chart: Store Price Comparison ──
+        const barData = {{ bar_chart_json|safe }};
+        if (barData && barData.stores && barData.stores.length > 0) {
+            const minPrice = Math.min(...barData.prices);
+            const barColors = barData.prices.map(p =>
+                p === minPrice ? '#00ff9d' : '#00e5ff'
+            );
+
+            const barOptions = {
+                chart: {
+                    type: 'bar',
+                    height: 280,
+                    toolbar: { show: false },
+                    background: 'transparent',
+                    fontFamily: "'Monaco', 'Courier New', monospace",
+                },
+                plotOptions: {
+                    bar: {
+                        horizontal: true,
+                        borderRadius: 4,
+                        barHeight: '55%',
+                        distributed: true,
+                        dataLabels: { position: 'top' },
+                    },
+                },
+                series: [{
+                    name: 'Price',
+                    data: barData.prices,
+                }],
+                xaxis: {
+                    categories: barData.stores,
+                    labels: {
+                        style: { colors: '#64748b', fontSize: '11px' },
+                        formatter: function(val) {
+                            return '₹' + val.toLocaleString('en-IN');
+                        },
+                    },
+                    axisBorder: { color: '#1a1f28' },
+                    axisTicks: { color: '#1a1f28' },
+                },
+                yaxis: {
+                    labels: {
+                        style: { colors: '#e2e8f0', fontSize: '12px', fontWeight: 600 },
+                    },
+                },
+                colors: barColors,
+                grid: {
+                    borderColor: '#1a1f28',
+                    xaxis: { lines: { show: true } },
+                    yaxis: { lines: { show: false } },
+                },
+                dataLabels: {
+                    enabled: true,
+                    formatter: function(val) {
+                        return '₹' + val.toLocaleString('en-IN');
+                    },
+                    offsetX: 30,
+                    style: {
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        colors: ['#e2e8f0'],
+                    },
+                    dropShadow: { enabled: false },
+                },
+                tooltip: {
+                    theme: 'dark',
+                    y: {
+                        formatter: function(val) {
+                            return '₹' + val.toLocaleString('en-IN');
+                        },
+                    },
+                    style: { fontSize: '12px' },
+                },
+                legend: { show: false },
+                annotations: {
+                    xaxis: [{
+                        x: minPrice,
+                        borderColor: '#00ff9d',
+                        strokeDashArray: 4,
+                        label: {
+                            text: 'LOWEST',
+                            borderColor: '#00ff9d',
+                            style: {
+                                color: '#05070c',
+                                background: '#00ff9d',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                padding: { left: 6, right: 6, top: 2, bottom: 2 },
+                            },
+                        },
+                    }],
+                },
+            };
+
+            new ApexCharts(document.querySelector("#barChart"), barOptions).render();
+        } else {
+            document.querySelector("#barChart").innerHTML = '<p class="text-center text-brand-textMuted text-sm py-8">No store price data available for comparison</p>';
+        }
+
+        // ── Line Chart: Price History ──
+        const chartData = {{ chart_json|safe }};
+        if (chartData && chartData.series && chartData.series.length > 0) {
+            const options = {
+                chart: {
+                    type: 'area',
+                    height: 320,
+                    toolbar: { show: false },
+                    background: 'transparent',
+                    fontFamily: "'Monaco', 'Courier New', monospace",
+                    zoom: { enabled: true },
+                },
+                series: chartData.series,
+                xaxis: {
+                    categories: chartData.categories,
+                    labels: { style: { colors: '#64748b', fontSize: '10px' }, rotate: -45 },
+                    axisBorder: { color: '#1a1f28' },
+                    axisTicks: { color: '#1a1f28' },
+                },
+                yaxis: {
+                    labels: {
+                        style: { colors: '#64748b', fontSize: '11px' },
+                        formatter: function(val) {
+                            return '₹' + val.toLocaleString('en-IN');
+                        },
+                    },
+                },
+                stroke: { width: 2, curve: 'smooth' },
+                fill: {
+                    type: 'gradient',
+                    gradient: { opacityFrom: 0.25, opacityTo: 0.02, stops: [0, 100] },
+                },
+                colors: ['#00e5ff', '#ff3366', '#00ff9d', '#ffb000', '#a855f7'],
+                grid: { borderColor: '#1a1f28' },
+                legend: {
+                    labels: { colors: '#94a3b8' },
+                    fontSize: '11px',
+                    markers: { radius: 2 },
+                },
+                tooltip: {
+                    theme: 'dark',
+                    y: {
+                        formatter: function(val) {
+                            return '₹' + val.toLocaleString('en-IN');
+                        },
+                    },
+                },
+                markers: { size: 3, strokeWidth: 0, hover: { size: 6 } },
+            };
+            new ApexCharts(document.querySelector("#priceChart"), options).render();
+        } else {
+            document.querySelector("#priceChart").innerHTML = '<p class="text-center text-brand-textMuted text-sm py-8">Not enough historical data yet — prices will appear here after the next update cycle</p>';
+        }
+    });
+</script>
+
+{% endblock %}

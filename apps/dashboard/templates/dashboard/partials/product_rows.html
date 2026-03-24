@@ -1,0 +1,63 @@
+{% for p in products %}
+<tr class="hover:bg-[#0a111a] transition-none group cursor-pointer"
+    hx-get="/dashboard/api/products/{{ p.id }}/history/?view=panel" hx-target="#product-detail-panel"
+    hx-swap="innerHTML" hx-trigger="click" @click="$store.pricecomStore.selectedProductId = {{ p.id }}; htmx.ajax('GET', '/dashboard/api/products/{{ p.id }}/history/', {swap: 'none', handler: function(elt, info){ 
+        var data = JSON.parse(info.xhr.response); 
+        ApexCharts.exec('priceHistoryChart', 'updateSeries', data.series);
+        if (data.categories) {
+            ApexCharts.exec('priceHistoryChart', 'updateOptions', { xaxis: { categories: data.categories }});
+        }
+    }})">
+    <td class="px-4 py-3">
+        <div class="flex items-center space-x-3">
+            {% if p.thumbnail %}
+            <img src="{{ p.thumbnail }}" alt="" class="w-8 h-8 rounded object-cover border border-brand-border flex-shrink-0" loading="lazy">
+            {% endif %}
+            <div>
+                <p class="text-brand-textHighlight group-hover:text-brand-accent">{{ p.name }}</p>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <span class="text-[9px] text-brand-textMuted"><span class="text-brand-success">{{ p.status }}</span> // 12ms</span>
+                    {% if p.rating %}
+                    <span class="text-[9px] text-amber-400" title="Rating: {{ p.rating }}/5">
+                        {% for i in "12345" %}{% if forloop.counter <= p.rating %}★{% else %}☆{% endif %}{% endfor %}
+                        <span class="text-brand-textMuted ml-0.5">{{ p.rating }}</span>
+                    </span>
+                    {% endif %}
+                    {% if p.reviews %}
+                    <span class="text-[8px] text-brand-textMuted bg-[#0D1117] px-1 rounded border border-brand-border">{{ p.reviews }} reviews</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </td>
+    <td class="px-4 py-3 text-brand-textMuted group-hover:text-brand-accent transition-colors duration-200 uppercase text-[10px] tracking-wider font-semibold">{{ p.store }}</td>
+    <td class="px-4 py-3 tabular-nums text-brand-textHighlight">{{ p.price }}</td>
+    <td class="px-4 py-3 tabular-nums"><span class="font-bold text-brand-success">{{ p.min }}</span></td>
+    <td class="px-4 py-3">
+        <span class="text-[10px] text-brand-textMuted bg-[#0D1117] px-1 border border-brand-border">{{ p.delta }}</span>
+    </td>
+    <td class="px-4 py-3 text-right space-x-2">
+        {% if p.is_watchlisted %}
+        <button hx-post="/scraper/watchlist/toggle/"
+                hx-vals='{"product_id": "{{ p.id }}"}'
+                hx-target="this"
+                hx-swap="outerHTML"
+                onclick="event.preventDefault(); event.stopPropagation();"
+                class="bg-brand-accent text-[#080B0F] border border-brand-accent px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-transparent hover:text-brand-accent transition-none">
+            ★ Watching
+        </button>
+        {% else %}
+        <button hx-post="/scraper/watchlist/toggle/"
+                hx-vals='{"product_id": "{{ p.id }}"}'
+                hx-target="this"
+                hx-swap="outerHTML"
+                onclick="event.preventDefault(); event.stopPropagation();"
+                class="bg-transparent text-brand-accent border border-brand-accent px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-brand-accent hover:text-[#080B0F] transition-none">
+            ☆ Watch
+        </button>
+        {% endif %}
+        <a href="{% url 'dashboard:product_detail' p.id %}"
+            class="text-brand-textMuted text-[10px] uppercase tracking-widest hover:text-brand-accent cursor-pointer">Details</a>
+    </td>
+</tr>
+{% endfor %}

@@ -1,0 +1,196 @@
+{% load static %}
+{% load socialaccount %}
+<!doctype html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | Pricecom</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'accounts/css/auth_terminal.css' %}">
+</head>
+
+<body class="auth-shell">
+    <main class="auth-main">
+        <section class="auth-grid">
+            <aside class="auth-panel">
+                <p class="auth-kicker">Provisioning</p>
+                <div class="auth-brand">
+                    <span class="brand-main">Price</span>
+                    <span class="brand-accent">Com</span>
+                </div>
+                <h1 class="auth-title">Initialize A New Operator Account</h1>
+                <p class="auth-subtitle">Create your credentials to start tracking product volatility, watchlist events, and opportunity signals from one command center.</p>
+
+                <div class="status-strip">
+                    <div class="status-row">
+                        <span>Registration Route</span>
+                        <span class="status-value">Internal</span>
+                    </div>
+                    <div class="status-row">
+                        <span>Verification State</span>
+                        <span class="status-value">Required</span>
+                    </div>
+                    <div class="status-row">
+                        <span>Security Score</span>
+                        <span class="status-value status-live">Strong + Encrypted</span>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="auth-card">
+                <p class="auth-kicker">Sign Up</p>
+
+                {% if messages %}
+                <ul class="message-list">
+                    {% for message in messages %}
+                    <li class="message-item {{ message.tags|default:'' }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if form.non_field_errors %}
+                <ul class="error-list">
+                    {% for err in form.non_field_errors %}
+                    <li class="error-item">{{ err }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <div class="field-group">
+                        <label for="id_username" class="field-label">Username</label>
+                        <input
+                            type="text"
+                            id="id_username"
+                            name="username"
+                            class="field-control"
+                            placeholder="operator-id"
+                            value="{{ form.username.value|default:'' }}"
+                            autocomplete="username"
+                            required
+                        >
+                        {% if form.username.errors %}
+                        <ul class="error-list">
+                            {% for err in form.username.errors %}
+                            <li class="error-item">{{ err }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+
+                    <div class="field-group">
+                        <label for="id_email" class="field-label">Email</label>
+                        <input
+                            type="email"
+                            id="id_email"
+                            name="email"
+                            class="field-control"
+                            placeholder="operator@domain.com"
+                            value="{{ form.email.value|default:'' }}"
+                            autocomplete="email"
+                            required
+                        >
+                        {% if form.email.errors %}
+                        <ul class="error-list">
+                            {% for err in form.email.errors %}
+                            <li class="error-item">{{ err }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+
+                    <div class="field-group">
+                        <label for="id_password1" class="field-label">Password</label>
+                        <div class="field-wrap">
+                            <input
+                                type="password"
+                                id="id_password1"
+                                name="password1"
+                                class="field-control"
+                                placeholder="create-security-key"
+                                autocomplete="new-password"
+                                required
+                            >
+                            <button type="button" class="password-toggle" data-password-toggle="id_password1" aria-label="Toggle password visibility">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password1.errors %}
+                        <ul class="error-list">
+                            {% for err in form.password1.errors %}
+                            <li class="error-item">{{ err }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+
+                    <div class="field-group">
+                        <label for="id_password2" class="field-label">Confirm password</label>
+                        <div class="field-wrap">
+                            <input
+                                type="password"
+                                id="id_password2"
+                                name="password2"
+                                class="field-control"
+                                placeholder="confirm-security-key"
+                                autocomplete="new-password"
+                                required
+                            >
+                            <button type="button" class="password-toggle" data-password-toggle="id_password2" aria-label="Toggle password visibility">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password2.errors %}
+                        <ul class="error-list">
+                            {% for err in form.password2.errors %}
+                            <li class="error-item">{{ err }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="auth-button">Create account</button>
+
+                    <div class="auth-divider" style="margin: 16px 0; text-align: center; color: #64748b; font-size: 12px; letter-spacing: 0.12em;">OR</div>
+
+                    <a class="auth-button google-button" href="{% provider_login_url 'google' process='login' %}">
+                        <i class="fab fa-google"></i>
+                        Continue with Google
+                    </a>
+                </form>
+
+                <p class="auth-foot">
+                    Already registered?
+                    <a class="auth-link" href="{% url 'login' %}">Sign in</a>
+                </p>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        (function () {
+            const toggles = document.querySelectorAll('[data-password-toggle]');
+            toggles.forEach(function (toggle) {
+                const fieldId = toggle.getAttribute('data-password-toggle');
+                const input = document.getElementById(fieldId);
+                if (!input) {
+                    return;
+                }
+
+                toggle.addEventListener('click', function () {
+                    const asText = input.type === 'password';
+                    input.type = asText ? 'text' : 'password';
+                    toggle.innerHTML = asText ? '<i class="fa-regular fa-eye-slash"></i>' : '<i class="fa-regular fa-eye"></i>';
+                });
+            });
+        })();
+    </script>
+</body>
+
+</html>

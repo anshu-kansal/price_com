@@ -1,0 +1,25 @@
+{% load static i18n %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Social signup - redirecting</title>
+</head>
+<body>
+    <p>Completing your social login, redirecting to dashboard...</p>
+    {% if form %}
+        <form method="post" id="social-signup-form">{% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" style="display:none;">Submit</button>
+        </form>
+        <script>
+            const f = document.getElementById('social-signup-form');
+            if (f) { f.submit(); }
+            setTimeout(() => window.location.href = '/dashboard/', 5000);
+        </script>
+    {% else %}
+        <script>window.location.href = '/dashboard/';</script>
+    {% endif %}
+</body>
+</html>

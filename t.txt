@@ -1,0 +1,82 @@
+=================================================
+          PRICECOM LOCALHOST SETUP GUIDE
+=================================================
+
+Follow these steps to start the PriceCom project on your local machine.
+
+1. Prerequisites
+----------------
+* Python 3.10+
+* MySQL Server (running locally)
+* Redis Server (for Celery background tasks)
+* Chrome/Chromium installed (for Selenium web scraping)
+
+2. Setup Virtual Environment
+----------------------------
+Open your terminal in the project directory:
+Windows:
+    python -m venv venv
+    venv\Scripts\activate
+Mac/Linux:
+    python3 -m venv venv
+    source venv/bin/activate
+
+3. Install Dependencies
+-----------------------
+Install all required packages from requirements.txt:
+    pip install -r requirements.txt
+
+4. Database Setup (MySQL)
+-------------------------
+Open your MySQL command line or Workbench and run:
+    CREATE DATABASE pricecom CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER 'pricecom_user'@'localhost' IDENTIFIED BY 'StrongPassword123!';
+    GRANT ALL PRIVILEGES ON pricecom.* TO 'pricecom_user'@'localhost';
+    FLUSH PRIVILEGES;
+
+5. Configure Environment Variables (.env)
+-----------------------------------------
+Create a `.env` file in the root directory and add the following:
+
+    # Security
+    DEBUG=True
+    DJANGO_SECRET_KEY="generate-one"  
+    # Tip: Generate a key by running: 
+    # python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
+    # Database
+    DB_NAME=pricecom
+    DB_USER=pricecom_user
+    DB_PASSWORD=StrongPassword123!
+    DB_HOST=127.0.0.1
+    DB_PORT=3306
+
+    # Redis (For background task queue)
+    REDIS_URL=redis://127.0.0.1:6379/1
+
+    # External APIs
+    SERPAPI_KEY=your_serpapi_key_here
+
+    # Proxy Configuration (Optional, for scraping Amazon/Flipkart reliably)
+    # PROXY_URLS=http://user:pass@proxy1.com,http://user:pass@proxy2.com
+
+6. Run Migrations
+-----------------
+Initialize the database tables:
+    python manage.py makemigrations
+    python manage.py migrate
+
+7. Start the Background Worker (Celery)
+---------------------------------------
+Open a *new* terminal, activate the venv, and start Celery (ensure Redis is running):
+    celery -A config worker --loglevel=info --concurrency=4
+
+8. Start the Django Server
+--------------------------
+In your main terminal, start the web server:
+    python manage.py runserver 0.0.0.0:8000
+
+9. Access the App
+-----------------
+Open your browser and navigate to:
+    http://localhost:8000/dashboard/
