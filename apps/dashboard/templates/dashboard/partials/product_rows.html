@@ -56,7 +56,7 @@
             ☆ Watch
         </button>
         {% endif %}
-        <a href="{% url 'dashboard:product_detail' p.id %}"
+        <a href="{% url 'dashboard:product_detail' p.id %}{% if query %}?q={{ query }}{% endif %}"
             class="text-brand-textMuted text-[10px] uppercase tracking-widest hover:text-brand-accent cursor-pointer">Details</a>
     </td>
 </tr>

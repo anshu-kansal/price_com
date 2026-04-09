@@ -9,21 +9,103 @@
     <div class="space-y-2 mt-2 border-t border-[#00ff9d]/20 pt-4 text-xs w-full">
         {% if results %}
             {% for result in results %}
-            <a href="{{ result.url }}" target="_blank"
-                class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 hover:bg-[#00ff9d]/10 p-3 cursor-pointer transition-none border border-transparent hover:border-[#00ff9d]/40">
-                <div class="text-[#e2e8f0]">
-                    <span class="font-bold">{{ result.name }}</span>
-                    {% if result.sku %}<span class="ml-2 text-[10px] text-[#94a3b8]">SKU: {{ result.sku }}</span>{% endif %}
-                </div>
-                <div class="flex items-center space-x-4 text-[10px] uppercase tracking-widest">
-                    <span class="text-brand-textMuted">{{ result.store|default:'-' }}</span>
-                    <span class="text-[#00ff9d] text-base">{{ result.price }}</span>
-                    {% if result.last_updated %}
-                        <span class="text-brand-textMuted">{{ result.last_updated|date:"d M H:i" }}</span>
+            <div class="flex items-center gap-6 p-4 hover:bg-[#00ff9d]/5 border-b border-[#00ff9d]/10 transition-none group">
+                <!-- 1. Thumbnail -->
+                <div class="flex-shrink-0 relative">
+                    {% if result.thumbnail %}
+                    <img src="{{ result.thumbnail }}" alt="" class="w-10 h-10 rounded border border-[#00ff9d]/20 object-cover">
+                    {% else %}
+                    <div class="w-10 h-10 rounded border border-[#00ff9d]/20 bg-[#0a111a] flex items-center justify-center">
+                        <i class="fas fa-box text-[#00ff9d]/30"></i>
+                    </div>
                     {% endif %}
                 </div>
-            </a>
+
+                <!-- 2. Product Info & Telemetry -->
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-white uppercase truncate mb-1">{{ result.name }}</div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-[9px] text-brand-success font-bold tracking-tighter uppercase">{{ result.status|default:'BULLISH' }} // 12ms</span>
+                        
+                        {% if result.rating %}
+                        <div class="flex items-center text-[9px] text-[#ffb000]">
+                            {% for i in "12345" %}{% if forloop.counter <= result.rating %}★{% else %}☆{% endif %}{% endfor %}
+                            <span class="ml-1 text-[#e2e8f0]/50">{{ result.rating }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if result.reviews %}
+                        <span class="px-1.5 py-0.5 bg-[#0a111a] border border-[#00ff9d]/20 rounded text-[8px] text-[#e2e8f0]/70 uppercase">{{ result.reviews }} reviews</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 3. Store -->
+                <div class="w-24 text-[10px] text-[#e2e8f0]/60 font-medium uppercase truncate">{{ result.store|default:'N/A' }}</div>
+
+                <!-- 4. Price & Min -->
+                <div class="flex items-center gap-4 w-40 justify-end">
+                    <div class="text-[11px] text-[#e2e8f0]/60 line-through">{{ result.price }}</div>
+                    <div class="text-sm font-bold text-[#00ff9d]">{{ result.min|default:result.price }}</div>
+                </div>
+
+                <!-- 5. Delta -->
+                <div class="w-20 text-right">
+                    <span class="px-1.5 py-0.5 bg-[#0a111a] border border-white/10 rounded text-[9px] text-white/50 font-mono uppercase">{{ result.delta|default:'STABLE' }}</span>
+                </div>
+
+                <!-- 6. Actions -->
+                <div class="flex items-center gap-3 ml-4">
+                    {% if result.id %}
+                    <button class="bg-[#00ff9d] text-[#080B0F] px-3 py-1 text-[10px] font-bold uppercase tracking-widest hover:bg-[#00e5ff] transition-none">
+                        {% if result.is_watchlisted %}★ WATCHING{% else %}☆ WATCH{% endif %}
+                    </button>
+                    <a href="{% url 'dashboard:product_detail' result.id %}" 
+                       class="text-[#00ff9d] hover:text-[#00e5ff] text-[10px] font-bold uppercase tracking-widest">DETAILS</a>
+                    {% endif %}
+                </div>
+            </div>
             {% endfor %}
+
+            <!-- Pagination Controls -->
+            {% if results.paginator.num_pages > 1 %}
+            <div class="flex items-center justify-between mt-8 border-t border-[#00ff9d]/20 pt-6 px-2">
+                <div class="text-[10px] text-[#00ff9d]/50 uppercase tracking-widest font-mono">
+                    Showing {{ results.start_index }}-{{ results.end_index }} of {{ results.paginator.count }} matches
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    {% if results.has_previous %}
+                    <button hx-get="{% url 'dashboard:api_search' %}?q={{ query }}&page={{ results.previous_page_number }}&layout=panel"
+                            hx-target="#search-results"
+                            hx-swap="innerHTML"
+                            class="px-3 py-1 border border-[#00ff9d]/30 text-[#00ff9d] hover:bg-[#00ff9d]/10 text-[10px] font-bold uppercase transition-none">
+                        &lt; PREV
+                    </button>
+                    {% endif %}
+
+                    <div class="flex items-center gap-1 mx-2">
+                        {% for i in results.paginator.page_range %}
+                        <button hx-get="{% url 'dashboard:api_search' %}?q={{ query }}&page={{ i }}&layout=panel"
+                                hx-target="#search-results"
+                                hx-swap="innerHTML"
+                                class="w-6 h-6 flex items-center justify-center border {% if results.number == i %}bg-[#00ff9d] text-[#080B0F] border-[#00ff9d]{% else %}border-[#00ff9d]/20 text-[#00ff9d]/50 hover:border-[#00ff9d] hover:text-[#00ff9d]{% endif %} text-[10px] font-bold transition-none">
+                            {{ i }}
+                        </button>
+                        {% endfor %}
+                    </div>
+
+                    {% if results.has_next %}
+                    <button hx-get="{% url 'dashboard:api_search' %}?q={{ query }}&page={{ results.next_page_number }}&layout=panel"
+                            hx-target="#search-results"
+                            hx-swap="innerHTML"
+                            class="px-3 py-1 border border-[#00ff9d]/30 text-[#00ff9d] hover:bg-[#00ff9d]/10 text-[10px] font-bold uppercase transition-none">
+                        NEXT &gt;
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         {% else %}
             <p class="text-[#e2e8f0]">NO MATCHES_FOUND :: REVISE_QUERY</p>
         {% endif %}

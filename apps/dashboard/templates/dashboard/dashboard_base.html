@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
         rel="stylesheet">
 
     <!-- Core Stack -->
@@ -41,7 +41,7 @@
                         }
                     },
                     fontFamily: {
-                        sans: ['"Space Grotesk"', 'sans-serif'],
+                        sans: ['"Plus Jakarta Sans"', '"Space Grotesk"', 'sans-serif'],
                         mono: ['"JetBrains Mono"', 'monospace'],
                     },
                     fontSize: {
@@ -58,11 +58,45 @@
         }
 
         body {
-            background-color: #080B0F;
+            background-color: #05070a;
             color: #94a3b8;
             overflow-x: hidden;
-            font-family: '"Space Grotesk"', sans-serif;
+            font-family: '"Plus Jakarta Sans"', sans-serif;
             letter-spacing: -0.01em;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass-panel {
+            background: rgba(13, 17, 23, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-border {
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .neon-border-accent {
+            border-color: rgba(0, 229, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.05);
+        }
+
+        .neon-text-accent {
+            color: #00e5ff;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+        }
+
+        .premium-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .premium-card:hover {
+            border-color: rgba(255,255,255,0.1);
+            background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            transform: translateY(-2px);
         }
 
         /* Number typography enforcement */
@@ -173,11 +207,7 @@
                 <span class="w-4 text-center">]</span>
                 <span class="font-bold">Dashboard</span>
             </a>
-            <a href="{% url 'dashboard:alerts' %}"
-                class="flex items-center space-x-3 px-4 py-2 text-brand-textMuted hover:text-brand-textHighlight hover:bg-[#0a111a] border-l-2 border-transparent transition-none">
-                <span class="w-4 text-center">></span>
-                <span>Matrix</span>
-            </a>
+
             <a href="{% url 'dashboard:watchlist' %}"
                 class="flex items-center space-x-3 px-4 py-2 text-brand-textMuted hover:text-brand-textHighlight hover:bg-[#0a111a] border-l-2 border-transparent transition-none">
                 <span class="w-4 text-center">></span>
@@ -423,6 +453,14 @@
                                     </button>
                                 `;
                                 if (window.htmx) htmx.process(uploadPanel);
+                            }
+
+                            // Inject search panel html if available
+                            if (data.panel_html) {
+                                const searchRes = document.getElementById('search-results');
+                                if (searchRes) {
+                                    searchRes.innerHTML = data.panel_html;
+                                }
                             }
 
                             store.imageSearchState.status = 'SUCCESS';

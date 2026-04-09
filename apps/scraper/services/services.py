@@ -13,7 +13,7 @@ from difflib import SequenceMatcher
 from django.db import transaction
 from django.utils import timezone
 from django.conf import settings
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from apps.scraper.models import Product, StorePrice, PriceHistory
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
@@ -36,20 +36,34 @@ class ScraperService:
 
     def search_all(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
         """
-        Aggregate search optimized for maximum speed and evasion.
-        Direct Amazon and Flipkart routines have been removed completely
-        because aggressive bot protections were doubling API latency.
-        SerpAPI natively bypasses firewalls and retrieves all prices.
+        Aggregate search that executes multiple providers (SerpAPI, Amazon, Flipkart)
+        in parallel to ensure a wide price comparison matrix while minimizing latency.
         """
         self.last_error = ""
         results = []
-        try:
-            serp_res = self._serp_scrape(query, limit)
-            if serp_res:
-                results.extend(serp_res)
-        except Exception as e:
-            logger.warning(f"SerpAPI search failed: {e}")
-            
+        
+        # Parallel execution of scrapers
+        scrapers = [
+            (self._serp_scrape, (query, limit)),
+            (self.search_amazon, (query, limit // 2)),
+            (self.search_flipkart, (query, limit // 2)),
+        ]
+        
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_scraper = {executor.submit(func, *args): func.__name__ for func, args in scrapers}
+            try:
+                for future in as_completed(future_to_scraper, timeout=12):
+                    name = future_to_scraper[future]
+                    try:
+                        res = future.result()
+                        if res:
+                            results.extend(res)
+                    except Exception as e:
+                        logger.warning(f"Scraper {name} failed: {e}")
+            except Exception as e:
+                # Handle TimeoutError or other iteration errors
+                logger.warning(f"Parallel scraping partial completion: {e}")
+        
         return results
     def _serp_scrape(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
         """Fetch results from SerpAPI Google Shopping and normalize them."""
@@ -80,14 +94,8 @@ class ScraperService:
                 logger.exception('SerpAPI request failed')
                 return None
 
-        # Try original query, then fallbacks if no shopping_results
-        attempts = [query, f"{query} price", f"{query} buy online"]
-        data = None
-        for attempt in attempts:
-            data = _call_serp(attempt)
-            if data and data.get('shopping_results'):
-                # prefer first non-empty result set
-                break
+        # Direct attempt only for parallel efficiency
+        data = _call_serp(query)
 
         if not data or not data.get('shopping_results'):
             self.last_error = 'SerpAPI returned no shopping results after retries'
@@ -424,5 +432,5 @@ class ScraperService:
         return {'product': first_product, 'rows': rows}
 
     # Compatibility wrapper: allow callers to use `scrape()` like other implementations
-    def scrape(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def scrape(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
         return self.search_all(query, limit)

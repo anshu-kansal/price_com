@@ -12,17 +12,17 @@ import requests
 import base64
 import logging
 from django.conf import settings
-from .tasks import image_search_task
 from core.services.query_cleaner import normalize_query
 from apps.scraper.services.services import ScraperService
 from django.db.models import Avg, Prefetch
 from django.http import JsonResponse, HttpResponse
-import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_http_methods
+from django.core.paginator import Paginator
+from django.core.cache import cache
 
 from apps.scraper.models import (
     NotificationLog,
@@ -32,8 +32,6 @@ from apps.scraper.models import (
     StorePrice,
     Watchlist,
 )
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -48,101 +46,108 @@ def _format_rupees(value: Optional[Decimal]) -> str:
 
 
 def _stat_cards_payload() -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    now = timezone.now()
-    week_ago = now - timedelta(days=7)
-    today = now.date()
+    try:
+        now = timezone.now()
+        week_ago = now - timedelta(days=7)
+        today = now.date()
 
-    total_products = Product.objects.filter(is_active=True).count()
-    refreshed_products = (
-        StorePrice.objects.filter(last_updated__gte=week_ago)
-        .values_list('product_id', flat=True)
-        .distinct()
-        .count()
-    )
-
-    drops_today_qs = PriceHistory.objects.filter(recorded_at__date=today)
-    downward_moves = drops_today_qs.filter(trend='DOWN').count()
-    significant_drops = drops_today_qs.filter(is_significant_drop=True).count()
-
-    avg_market_change = drops_today_qs.filter(change_percentage__isnull=False).aggregate(
-        avg=Avg('change_percentage')
-    )['avg']
-    if avg_market_change is None:
-        avg_market_change = (
-            PriceHistory.objects.filter(recorded_at__gte=week_ago)
-            .aggregate(avg=Avg('change_percentage'))
-            .get('avg')
+        total_products = Product.objects.filter(is_active=True).count()
+        refreshed_products = (
+            StorePrice.objects.filter(last_updated__gte=week_ago)
+            .values_list('product_id', flat=True)
+            .distinct()
+            .count()
         )
-    avg_market_change = float(avg_market_change or 0.0)
 
-    open_alerts = PriceAlert.objects.filter(is_triggered=False).count()
-    alerts_triggered_today = PriceAlert.objects.filter(
-        is_triggered=True, created_at__date=today
-    ).count()
+        drops_today_qs = PriceHistory.objects.filter(recorded_at__date=today)
+        downward_moves = drops_today_qs.filter(trend='DOWN').count()
+        significant_drops = drops_today_qs.filter(is_significant_drop=True).count()
 
-    latest_sync = StorePrice.objects.order_by('-last_updated').first()
-    freshness_value = 'OFFLINE'
-    freshness_meta = 'no sync recorded'
-    latency_seconds = None
-    if latest_sync and latest_sync.last_updated:
-        latency_delta = now - latest_sync.last_updated
-        latency_seconds = latency_delta.total_seconds()
-        if latency_seconds < 60:
-            freshness_value = 'ONLINE'
-            freshness_meta = f"{int(latency_seconds)}s ago"
-        elif latency_seconds < 3600:
-            freshness_value = 'SLOW'
-            freshness_meta = f"{int(latency_seconds // 60)}m ago"
-        else:
-            freshness_value = 'STALE'
-            freshness_meta = f"{int(latency_seconds // 3600)}h ago"
+        avg_market_change = drops_today_qs.filter(change_percentage__isnull=False).aggregate(
+            avg=Avg('change_percentage')
+        )['avg']
+        if avg_market_change is None:
+            avg_market_change = (
+                PriceHistory.objects.filter(recorded_at__gte=week_ago)
+                .aggregate(avg=Avg('change_percentage'))
+                .get('avg')
+            )
+        avg_market_change = float(avg_market_change or 0.0)
 
-    # Build stat cards and meta consistently (use total_products variable)
-    stat_cards = [
-        {
-            'title': 'Products Tracked',
-            'value': f"{total_products:,}",
-            'sublabel': f"{refreshed_products} refreshed 7d",
-            'type': None,
-        },
-        {
-            'title': 'Price Drops Today',
-            """
-            HTMX endpoint returning table rows for products.
-            """
-            'value': f"{downward_moves:,}",
-            'sublabel': f"{significant_drops} deep cuts",
-            'type': None,
-        },
-        {
-            'title': 'Avg Market Change',
-            'value': f"{avg_market_change:+.1f}%",
-            'sublabel': '7d blended delta',
-            'type': None,
-        },
-        {
-            'title': 'Active Alerts',
-            'value': f"{open_alerts:,}",
-            'sublabel': f"{alerts_triggered_today} fired today",
-            'type': None,
-        },
-        {
-            'title': 'Data Freshness',
-            'value': freshness_value,
-            'sublabel': freshness_meta,
-            'type': 'freshness',
-        },
-    ]
+        open_alerts = PriceAlert.objects.filter(is_triggered=False).count()
+        alerts_triggered_today = PriceAlert.objects.filter(
+            is_triggered=True, created_at__date=today
+        ).count()
 
-    meta = {
-        'avg_market_change': avg_market_change,
-        'drops_today': downward_moves,
-        'significant_drops': significant_drops,
-        'active_alerts': open_alerts,
-        'latency_seconds': latency_seconds or 0,
-    }
+        latest_sync = StorePrice.objects.order_by('-last_updated').first()
+        freshness_value = 'OFFLINE'
+        freshness_meta = 'no sync recorded'
+        latency_seconds = None
+        if latest_sync and latest_sync.last_updated:
+            latency_delta = now - latest_sync.last_updated
+            latency_seconds = latency_delta.total_seconds()
+            if latency_seconds < 60:
+                freshness_value = 'ONLINE'
+                freshness_meta = f"{int(latency_seconds)}s ago"
+            elif latency_seconds < 3600:
+                freshness_value = 'SLOW'
+                freshness_meta = f"{int(latency_seconds // 60)}m ago"
+            else:
+                freshness_value = 'STALE'
+                freshness_meta = f"{int(latency_seconds // 3600)}h ago"
 
-    return stat_cards, meta
+        # Build stat cards and meta consistently
+        stat_cards = [
+            {
+                'title': 'Products Tracked',
+                'value': f"{total_products:,}",
+                'sublabel': f"{refreshed_products} refreshed 7d",
+                'type': None,
+            },
+            {
+                'title': 'Price Drops Today',
+                'value': f"{downward_moves:,}",
+                'sublabel': f"{significant_drops} deep cuts",
+                'type': None,
+            },
+            {
+                'title': 'Avg Market Change',
+                'value': f"{avg_market_change:+.1f}%",
+                'sublabel': '7d blended delta',
+                'type': None,
+            },
+            {
+                'title': 'Active Alerts',
+                'value': f"{open_alerts:,}",
+                'sublabel': f"{alerts_triggered_today} fired today",
+                'type': None,
+            },
+            {
+                'title': 'Data Freshness',
+                'value': freshness_value,
+                'sublabel': freshness_meta,
+                'type': 'freshness',
+            },
+        ]
+
+        meta = {
+            'avg_market_change': avg_market_change,
+            'drops_today': downward_moves,
+            'significant_drops': significant_drops,
+            'active_alerts': open_alerts,
+            'latency_seconds': latency_seconds or 0,
+        }
+        return stat_cards, meta
+
+    except Exception as e:
+        logger.error(f"FATAL: _stat_cards_payload failed: {str(e)}", exc_info=True)
+        return [], {
+            'avg_market_change': 0.0,
+            'drops_today': 0,
+            'significant_drops': 0,
+            'active_alerts': 0,
+            'latency_seconds': 0,
+        }
 
 
 def _prediction_payload(meta: Dict[str, Any]) -> Dict[str, Any]:
@@ -178,7 +183,7 @@ def _prediction_payload(meta: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _chart_payload(product_id: Optional[int] = None, limit: int = 20) -> Dict[str, Any]:
+def _chart_payload(product_id: Optional[int] = None, period: str = '7d', limit: int = 100) -> Dict[str, Any]:
     def fallback() -> Dict[str, Any]:
         return {
             'series': [
@@ -189,18 +194,27 @@ def _chart_payload(product_id: Optional[int] = None, limit: int = 20) -> Dict[st
             'product_id': None,
         }
 
+    now = timezone.now()
+    if period == '1m':
+        start_date = now - timedelta(days=30)
+    elif period == 'ytd':
+        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:  # '7d' default
+        start_date = now - timedelta(days=7)
+
     base_qs = StorePrice.objects.select_related('product').prefetch_related(
-        Prefetch('history', queryset=PriceHistory.objects.order_by('-recorded_at'))
+        Prefetch('history', queryset=PriceHistory.objects.filter(recorded_at__gte=start_date).order_by('-recorded_at'))
     )
 
     if product_id:
         store_prices = list(base_qs.filter(product_id=product_id))
     else:
-        seed_history = PriceHistory.objects.select_related('store_price__product').order_by('-recorded_at').first()
+        seed_history = PriceHistory.objects.filter(recorded_at__gte=start_date).select_related('store_price__product').order_by('-recorded_at').first()
         if not seed_history:
             return fallback()
         product_id = seed_history.store_price.product_id
         store_prices = list(base_qs.filter(product_id=product_id))
+
 
     if not store_prices:
         return fallback()
@@ -250,7 +264,6 @@ def _chart_payload(product_id: Optional[int] = None, limit: int = 20) -> Dict[st
         'categories': categories,
         'product_id': product_id,
     }
-
 
 def _watchlist_items(user) -> List[Dict[str, Any]]:
     qs = Watchlist.objects.select_related('product').prefetch_related(
@@ -308,35 +321,6 @@ def _watchlist_items(user) -> List[Dict[str, Any]]:
             }
         )
 
-    if items:
-        return items
-
-    # Fallback to most recently updated products
-    fallback_products = (
-        Product.objects.prefetch_related('prices').filter(is_active=True).order_by('-updated_at')[:3]
-    )
-    for product in fallback_products:
-        current_price = product.current_lowest_price
-        if current_price is None:
-            current_price = (
-                product.prices.all().order_by('current_price').values_list('current_price', flat=True).first()
-            )
-        if current_price is None:
-            continue
-        
-        target_price = Decimal(current_price) * Decimal('0.97')
-        items.append(
-            {
-                'watchlist_id': '',  # No watchlist entry yet
-                'product_id': product.id,
-                'product_name': product.name.upper(),
-                'target_price': target_price,
-                'current_lowest_price': current_price,
-                'delta': '+0_DELTA',
-                'pct': 65,
-            }
-        )
-
     return items
 
 
@@ -375,84 +359,77 @@ def dashboard_home(request):
     """
     Dashboard Home View -- hydrates template context with live metrics.
     """
+    try:
+        stat_cards, meta = _stat_cards_payload()
+        prediction_payload = _prediction_payload(meta)
+        chart_seed = _chart_payload()
 
-    stat_cards, meta = _stat_cards_payload()
-    prediction_payload = _prediction_payload(meta)
-    chart_seed = _chart_payload()
+        ticker_drops = list(PriceHistory.objects.get_biggest_drops(limit=10))
+        ticker_alerts = []
 
-    ticker_drops = list(PriceHistory.objects.get_biggest_drops(limit=10))
-    ticker_alerts = []
+        for drop in ticker_drops:
+            sp = drop.store_price
+            product = sp.product
+            delta = timezone.now() - drop.recorded_at
 
-    for drop in ticker_drops:
-        sp = drop.store_price
-        product = sp.product
-        delta = timezone.now() - drop.recorded_at
+            if delta.days > 0:
+                time_ago = f"T-{delta.days}d"
+            elif delta.seconds >= 3600:
+                time_ago = f"T-{delta.seconds // 3600}h"
+            elif delta.seconds >= 60:
+                time_ago = f"T-{delta.seconds // 60}m"
+            else:
+                time_ago = f"T-{delta.seconds}s"
 
-        if delta.days > 0:
-            time_ago = f"T-{delta.days}d"
-        elif delta.seconds >= 3600:
-            time_ago = f"T-{delta.seconds // 3600}h"
-        elif delta.seconds >= 60:
-            time_ago = f"T-{delta.seconds // 60}m"
-        else:
-            time_ago = f"T-{delta.seconds}s"
+            orig_price = drop.price / (1 + (drop.change_percentage / Decimal('100'))) if drop.change_percentage else drop.price
+            
+            icon = product.category.icon if product.category else 'fas fa-box'
+            if 'mobile' in icon.lower() or 'phone' in icon.lower():
+                icon_color = 'text-[#00e5ff]'
+            elif 'laptop' in icon.lower() or 'computer' in icon.lower():
+                icon_color = 'text-[#ffb000]'
+            else:
+                icon_color = 'text-[#ff3366]'
 
-        orig_price = drop.price / (1 + (drop.change_percentage / Decimal('100'))) if drop.change_percentage else drop.price
-        
-        icon = product.category.icon if product.category else 'fas fa-box'
-        if 'mobile' in icon.lower() or 'phone' in icon.lower():
-            icon_color = 'text-[#00e5ff]'
-        elif 'laptop' in icon.lower() or 'computer' in icon.lower():
-            icon_color = 'text-[#ffb000]'
-        else:
-            icon_color = 'text-[#ff3366]'
+            ticker_alerts.append({
+                'name': product.name.upper()[:15],
+                'icon': icon,
+                'icon_color': icon_color,
+                'drop_pct': f"{float(drop.change_percentage):.1f}%",
+                'old_price': _format_rupees(orig_price),
+                'new_price': _format_rupees(drop.price),
+                'store': sp.store_name.upper()[:4],
+                'time_ago': time_ago,
+            })
 
-        ticker_alerts.append({
-            'name': product.name.upper()[:15],
-            'icon': icon,
-            'icon_color': icon_color,
-            'drop_pct': f"{float(drop.change_percentage):.1f}%",
-            'old_price': _format_rupees(orig_price),
-            'new_price': _format_rupees(drop.price),
-            'store': sp.store_name.upper()[:4],
-            'time_ago': time_ago,
-        })
+        if not ticker_alerts:
+            ticker_alerts = [
+                {'name': 'IPHONE-14-128', 'icon': 'fas fa-mobile-screen', 'icon_color': 'text-[#ff3366]', 'drop_pct': '-5.4%', 'old_price': '₹61,499', 'new_price': '₹58,000', 'store': 'AMZN', 'time_ago': 'T-4m'},
+                {'name': 'SAMSUNG-S23-256', 'icon': 'fas fa-mobile', 'icon_color': 'text-[#00e5ff]', 'drop_pct': 'RESTOCK', 'old_price': 'QTY: 14', 'new_price': '', 'store': 'FLKP', 'time_ago': 'T-12m'},
+                {'name': 'SONY-WH-1000XM5', 'icon': 'fas fa-headphones', 'icon_color': 'text-[#ffb000]', 'drop_pct': '+13.5%', 'old_price': '₹29,990', 'new_price': '₹25,950', 'store': 'CROM', 'time_ago': 'T-2s'},
+            ]
 
-    if not ticker_alerts:
-        ticker_alerts = [
-            {'name': 'IPHONE-14-128', 'icon': 'fas fa-mobile-screen', 'icon_color': 'text-[#ff3366]', 'drop_pct': '-5.4%', 'old_price': '₹61,499', 'new_price': '₹58,000', 'store': 'AMZN', 'time_ago': 'T-4m'},
-            {'name': 'SAMSUNG-S23-256', 'icon': 'fas fa-mobile', 'icon_color': 'text-[#00e5ff]', 'drop_pct': 'RESTOCK', 'old_price': 'QTY: 14', 'new_price': '', 'store': 'FLKP', 'time_ago': 'T-12m'},
-            {'name': 'SONY-WH-1000XM5', 'icon': 'fas fa-headphones', 'icon_color': 'text-[#ffb000]', 'drop_pct': '+13.5%', 'old_price': '₹29,990', 'new_price': '₹25,950', 'store': 'CROM', 'time_ago': 'T-2s'},
-        ]
-
-    context = {
-        'stat_cards': stat_cards,
-        'active_alerts': meta['active_alerts'],
-        'prediction': prediction_payload,
-        'chart_seed': chart_seed,
-        'ticker_alerts': ticker_alerts,
-    }
-    return render(request, 'dashboard/index.html', context)
+        context = {
+            'stat_cards': stat_cards,
+            'active_alerts': meta['active_alerts'],
+            'prediction': prediction_payload,
+            'chart_seed': chart_seed,
+            'ticker_alerts': ticker_alerts,
+        }
+        return render(request, 'dashboard/index.html', context)
+    except Exception as e:
+        logger.error(f"FATAL dashboard_home error: {e}", exc_info=True)
+        return HttpResponse("A technical error occurred in the dashboard engine.", status=500)
 
 
 @login_required
 def product_detail_page(request, id):
-    """
-    Full product details page view.
-    """
-    from django.shortcuts import get_object_or_404
-    
-    try:
-        product = get_object_or_404(
-            Product.objects.select_related('category').prefetch_related(
-                Prefetch('prices', queryset=StorePrice.objects.order_by('current_price'))
-            ),
-            id=id,
-        )
-    except Exception as e:
-        logger.error(f"Failed to load product {id}: {str(e)}")
-        messages.error(request, "Product not found.")
-        return redirect('dashboard:index')
+    product = get_object_or_404(
+        Product.objects.select_related('category').prefetch_related(
+            Prefetch('prices', queryset=StorePrice.objects.order_by('current_price'))
+        ),
+        id=id,
+    )
 
     # Build store-level comparison data
     stores = []
@@ -467,18 +444,8 @@ def product_detail_page(request, id):
             'product_url': sp.product_url,
         })
 
-    def _price_key(row):
-        price = row.get('price')
-        if price is None:
-            return (1, Decimal('0'))
-        try:
-            return (0, Decimal(price))
-        except Exception:
-            return (0, Decimal('0'))
+    stores_sorted = sorted(stores, key=lambda s: (0, s['price']) if s['price'] is not None else (1, Decimal('0')))
 
-    stores_sorted = sorted(stores, key=_price_key)
-
-    # Derive metrics
     current_lowest_price = product.current_lowest_price
     if current_lowest_price is None and stores_sorted:
         first_price = stores_sorted[0].get('price')
@@ -487,19 +454,34 @@ def product_detail_page(request, id):
 
     num_stores = len([s for s in stores_sorted if s.get('price') is not None])
 
-    # Chart and insights
+    # Trigger background scrape if data is thin or stale
+    last_sync = product.prices.order_by('-last_updated').first()
+    stale_threshold = timezone.now() - timedelta(minutes=30)
+    needs_refresh = (num_stores < 3) or (last_sync and last_sync.last_updated < stale_threshold)
+    if needs_refresh:
+        def _bg_scrape():
+            try:
+                s = ScraperService()
+                s.scrape(product.name, limit=12)
+            except Exception:
+                pass
+        threading.Thread(target=_bg_scrape, daemon=True).start()
+
+    # Chart payload for price history timeline
     chart_payload = _chart_payload(product_id=id)
+
+    # Historical metrics from PriceHistory
     history_qs = PriceHistory.objects.filter(store_price__product_id=product.id)
     lowest_price = highest_price = avg_price = None
     change_pct = None
     trend_label = product.trend_indicator or 'STABLE'
 
     if history_qs.exists():
-        prices = list(history_qs.values_list('price', flat=True))
+        prices_list = list(history_qs.values_list('price', flat=True))
         try:
-            lowest_price = min(prices)
-            highest_price = max(prices)
-            avg_price = sum(prices) / len(prices)
+            lowest_price = min(prices_list)
+            highest_price = max(prices_list)
+            avg_price = sum(prices_list) / len(prices_list)
         except Exception:
             pass
 
@@ -541,6 +523,13 @@ def product_detail_page(request, id):
     }
     bar_chart_json = json.dumps(bar_chart_data)
 
+    stat_cards = [
+        ("Current Lowest", _format_rupees(current_lowest_price), "text-brand-success", f"Across {num_stores} stores"),
+        ("Peak Value", _format_rupees(highest_price), "text-brand-accent", "Historical Max"),
+        ("Global Mean", _format_rupees(avg_price), "text-white", "Market Average"),
+        ("Net Variance", insights['change_pct_display'], "text-brand-success" if trend_label == 'DOWN' else "text-brand-danger" if trend_label == 'UP' else "text-white", "Historical Delta"),
+    ]
+
     context = {
         'product': product,
         'stores': stores_sorted,
@@ -552,192 +541,142 @@ def product_detail_page(request, id):
         'bar_chart_json': bar_chart_json,
         'insights': insights,
         'is_watchlisted': is_watchlisted,
+        'stat_cards': stat_cards,
     }
-
     return render(request, 'dashboard/product_details.html', context)
 
-
-SORT_CHOICES = [
-    ('newest', 'Newest additions'),
-    ('lowest_price', 'Lowest current price'),
-    ('biggest_drop', 'Biggest price drop'),
-    ('highest_discount', 'Highest discount'),
-]
-
-AVAILABILITY_CHOICES = [
-    ('any', 'All availability'),
-    ('in_stock', 'In stock'),
-    ('out_of_stock', 'Out of stock'),
-]
-
-
-def _map_watchlist_trend(raw_indicator: Optional[str]) -> str:
-    normalized = (raw_indicator or '').upper()
-    if any(token in normalized for token in ('DOWN', 'BEAR', 'DROP')):
-        return 'Dropping'
-    if any(token in normalized for token in ('UP', 'BULL', 'RISE')):
-        return 'Rising'
-    return 'Stable'
-
-
-def _build_watchlist_payload(user) -> List[Dict[str, Any]]:
-    payload: List[Dict[str, Any]] = []
-    watchlist_qs = (
-        Watchlist.objects.filter(user=user)
-        .select_related('product')
-        .prefetch_related(
-            Prefetch('product__prices', queryset=StorePrice.objects.order_by('current_price'))
-        )
-    )
-
-    for entry in watchlist_qs:
-        product = entry.product
-        store_prices = [sp for sp in product.prices.all() if sp.current_price is not None]
-        if not store_prices:
-            continue
-
-        store_prices.sort(key=lambda sp: sp.current_price or Decimal('0'))
-        best_store = store_prices[0]
-        best_price_value = best_store.current_price or Decimal('0')
-
-        entry_price_value = (
-            entry.last_notified_price
-            or product.current_lowest_price
-            or product.base_price
-            or best_price_value
-        )
-        initial_price_value = entry.added_price or product.base_price or best_price_value
-
-        price_difference_value = Decimal('0')
-        if entry_price_value is not None and best_price_value is not None:
-            price_difference_value = entry_price_value - best_price_value
-
-        price_drop_value = price_difference_value if price_difference_value > 0 else Decimal('0')
-        price_drop_percent = 0.0
-        if price_drop_value > 0 and entry_price_value:
-            try:
-                price_drop_percent = float((price_drop_value / entry_price_value) * Decimal('100'))
-            except (InvalidOperation, ZeroDivisionError):
-                price_drop_percent = 0.0
-
-        discount_percent = float(product.discount_percentage or Decimal('0'))
-        trend_label = _map_watchlist_trend(product.trend_indicator)
-        trend_class = (
-            'text-brand-success' if trend_label == 'Dropping'
-            else 'text-brand-accent' if trend_label == 'Rising'
-            else 'text-brand-textMuted'
-        )
-
-        metadata = product.metadata if isinstance(product.metadata, dict) else {}
-        image_url = (
-            best_store.image_url
-            or metadata.get('image_url')
-            or metadata.get('thumbnail')
-        )
-
-        availability_key = 'in_stock' if best_store.is_available else 'out_of_stock'
-        availability_label = 'In Stock' if best_store.is_available else 'Out of Stock'
-        last_updated = best_store.last_updated or product.updated_at
-
-        store_breakdown = []
-        for sp in store_prices:
-            price_value = sp.current_price or Decimal('0')
-            store_breakdown.append({
-                'name': sp.store_name,
-                'price_display': _format_rupees(price_value),
-                'price_value': price_value,
-                'is_best': sp == best_store,
-            })
-
-        store_count = len(store_prices)
-        target_reached = bool(entry.target_price and best_price_value <= entry.target_price) if entry.target_price else False
-        baseline_drop_percent = 0.0
-        if initial_price_value and initial_price_value > 0 and best_price_value:
-            try:
-                baseline_drop_percent = float(((initial_price_value - best_price_value) / initial_price_value) * Decimal('100'))
-            except (InvalidOperation, ZeroDivisionError):
-                baseline_drop_percent = 0.0
-
-        payload.append({
-            'uuid': entry.uuid,
-            'product_name': product.name,
-            'product_image': image_url,
-            'store_name': best_store.store_name,
-            'product_url': best_store.product_url,
-            'availability_label': availability_label,
-            'availability_key': availability_key,
-            'trend_label': trend_label,
-            'trend_class': trend_class,
-            'current_price_display': _format_rupees(best_price_value),
-            'current_price_value': best_price_value,
-            'best_store_name': best_store.store_name,
-            'best_store_url': best_store.product_url,
-            'store_count': store_count,
-            'store_breakdown': store_breakdown,
-            'entry_price_display': _format_rupees(entry_price_value) if entry_price_value else '—',
-            'price_difference_display': _format_rupees(abs(price_difference_value)),
-            'price_difference_value': abs(price_difference_value),
-            'price_drop_percent': round(price_drop_percent, 1),
-            'discount_percent': round(discount_percent, 1),
-            'baseline_price_display': _format_rupees(initial_price_value) if initial_price_value else '—',
-            'baseline_drop_percent': round(baseline_drop_percent, 1),
-            'last_updated': last_updated,
-            'target_price_value': entry.target_price,
-            'target_price_display': _format_rupees(entry.target_price) if entry.target_price else '—',
-            'created_at': entry.created_at,
-            'price_drop_value': price_drop_value,
-            'price_direction': 'down' if price_difference_value > 0 else 'up' if price_difference_value < 0 else 'stable',
-            'target_reached': target_reached,
-            'was_out_of_stock': entry.was_out_of_stock,
-        })
-
-    return payload
-
-
-def _sort_watchlist_items(items: List[Dict[str, Any]], sort_option: str) -> str:
-    normalized_sort = sort_option if sort_option in dict(SORT_CHOICES) else 'newest'
-    reverse = True
-    key_func = lambda item: item['created_at'] or timezone.now()
-
-    if normalized_sort == 'lowest_price':
-        key_func = lambda item: item['current_price_value'] or Decimal('0')
-        reverse = False
-    elif normalized_sort == 'biggest_drop':
-        key_func = lambda item: item['price_drop_value']
-    elif normalized_sort == 'highest_discount':
-        key_func = lambda item: item['discount_percent']
-
-    items.sort(key=key_func, reverse=reverse)
-    return normalized_sort
 
 
 @login_required
 def dashboard_watchlist(request):
     sort_option = request.GET.get('sort', 'newest')
-    availability_filter = request.GET.get('availability', 'any')
+    availability_filter = request.GET.get('availability', 'all')
+    
+    qs = Watchlist.objects.filter(user=request.user).select_related('product').prefetch_related(
+        Prefetch('product__prices', queryset=StorePrice.objects.order_by('current_price'))
+    )
 
-    items = _build_watchlist_payload(request.user)
-    if availability_filter in ('in_stock', 'out_of_stock'):
-        items = [item for item in items if item['availability_key'] == availability_filter]
+    if sort_option == 'newest':
+        qs = qs.order_by('-created_at')
+    elif sort_option == 'price_low_high':
+        qs = qs.order_by('product__current_lowest_price')
+    elif sort_option == 'price_high_low':
+        qs = qs.order_by('-product__current_lowest_price')
 
-    sort_option = _sort_watchlist_items(items, sort_option)
+    items = []
+    for entry in qs:
+        product = entry.product
+        if not product:
+            continue
+
+        prices = list(product.prices.all())
+        in_stock_prices = [p for p in prices if getattr(p, 'is_available', True) and p.current_price]
+        
+        if availability_filter == 'in_stock' and not in_stock_prices:
+            continue
+        if availability_filter == 'out_of_stock' and in_stock_prices:
+            continue
+
+        current_price = product.current_lowest_price
+        if not current_price and in_stock_prices:
+            current_price = in_stock_prices[0].current_price
+
+        if not current_price and prices:
+            current_price = prices[0].current_price
+
+        entry_price = entry.added_price
+        target_price = entry.target_price
+
+        # Computations
+        trend_class = "text-white"
+        trend_label = "STABLE"
+        price_difference_display = "0"
+        price_drop_percent = "0.0"
+
+        if current_price and entry_price:
+            diff = entry_price - current_price
+            if diff > 0:
+                trend_class = "text-brand-success"
+                trend_label = "DOWN"
+                price_difference_display = _format_rupees(diff)
+                price_drop_percent = f"{(diff / entry_price * 100):.1f}"
+            elif diff < 0:
+                trend_class = "text-[#ff3366]"
+                trend_label = "UP"
+                price_difference_display = _format_rupees(abs(diff))
+                price_drop_percent = f"{(diff / entry_price * 100):.1f}"
+
+        baseline_price = product.base_price or entry_price or current_price
+        discount_percent = "0.0"
+        baseline_drop_percent = "0.0"
+        if baseline_price and current_price and baseline_price > current_price:
+            bdiff = baseline_price - current_price
+            baseline_drop_percent = f"{(bdiff / baseline_price * 100):.1f}"
+            discount_percent = baseline_drop_percent
+
+        best_store_name = "N/A"
+        best_store_url = "#"
+        if in_stock_prices:
+            best_store_name = in_stock_prices[0].store_name
+            best_store_url = in_stock_prices[0].product_url
+        elif prices:
+            best_store_name = prices[0].store_name
+            best_store_url = prices[0].product_url
+
+        store_breakdown = []
+        for i, p in enumerate(prices):
+            if p.current_price:
+                store_breakdown.append({
+                    'name': p.store_name,
+                    'price_display': _format_rupees(p.current_price),
+                    'is_best': i == 0
+                })
+
+        product_image_url = ""
+        if in_stock_prices and in_stock_prices[0].image_url:
+            product_image_url = in_stock_prices[0].image_url
+        elif prices and prices[0].image_url:
+            product_image_url = prices[0].image_url
+
+        item_data = {
+            'uuid': str(entry.uuid),
+            'best_store_name': best_store_name,
+            'store_count': len(prices),
+            'product_image': product_image_url,
+            'product_name': product.name,
+            'last_updated': product.updated_at,
+            'current_price_display': _format_rupees(current_price),
+            'entry_price_display': _format_rupees(entry_price),
+            'trend_class': trend_class,
+            'trend_label': trend_label,
+            'price_difference_display': price_difference_display,
+            'price_drop_percent': price_drop_percent,
+            'discount_percent': discount_percent,
+            'baseline_price_display': _format_rupees(baseline_price),
+            'baseline_drop_percent': baseline_drop_percent,
+            'target_reached': bool(target_price and current_price and current_price <= target_price),
+            'was_out_of_stock': len(in_stock_prices) == 0,
+            'best_store_url': best_store_url,
+            'target_price_value': str(target_price) if target_price else '',
+            'store_breakdown': store_breakdown[:3]  # top 3
+        }
+        items.append(item_data)
 
     context = {
         'items': items,
-        'sort_options': SORT_CHOICES,
+        'sort_options': [('newest', 'Date Added (Newest)'), ('price_low_high', 'Price (Low to High)'), ('price_high_low', 'Price (High to Low)')],
+        'availability_filters': [('all', 'All Statuses'), ('in_stock', 'In Stock First'), ('out_of_stock', 'Out of Stock')],
         'sort_option': sort_option,
-        'availability_filters': AVAILABILITY_CHOICES,
-        'availability_filter': availability_filter,
+        'availability_filter': availability_filter
     }
     return render(request, 'dashboard/watchlist.html', context)
-
 
 @login_required
 @require_POST
 def watchlist_remove(request, uuid):
-    watchlist_item = get_object_or_404(Watchlist, uuid=uuid, user=request.user)
-    product_name = watchlist_item.product.name
-    watchlist_item.delete()
+    item = get_object_or_404(Watchlist, uuid=uuid, user=request.user)
+    product_name = item.product.name
+    item.delete()
     messages.success(request, f"{product_name} removed from your watchlist.")
     return redirect('dashboard:watchlist')
 
@@ -769,62 +708,6 @@ def watchlist_update_target(request, uuid):
 
 
 @login_required
-@require_POST
-def set_price_alert_from_product(request):
-    product_id = request.POST.get('product_id')
-    target_value = request.POST.get('target_price')
-    min_value = request.POST.get('min_price')
-
-    if not product_id:
-        messages.error(request, "Product is required to set an alert.")
-        return redirect('dashboard:alerts')
-
-    product = get_object_or_404(Product, id=product_id)
-
-    try:
-        target_price = Decimal(target_value)
-        if target_price <= 0:
-            raise InvalidOperation()
-    except (InvalidOperation, TypeError, ValueError):
-        messages.error(request, "Enter a valid alert price.")
-        return redirect('dashboard:alerts')
-
-    if min_value:
-        try:
-            min_price = Decimal(min_value)
-            if min_price <= 0 or min_price > target_price:
-                raise InvalidOperation()
-        except (InvalidOperation, TypeError, ValueError):
-            messages.error(request, "Enter a valid range where Min is less than or equal to Max.")
-            return redirect('dashboard:alerts')
-
-    current_price = product.current_lowest_price
-    watchlist_item, _ = Watchlist.objects.get_or_create(
-        user=request.user,
-        product=product,
-        defaults={
-            'added_price': current_price,
-            'last_recorded_price': current_price,
-        },
-    )
-
-    update_fields = ['target_price', 'last_notified_price']
-    watchlist_item.target_price = target_price
-    watchlist_item.last_notified_price = None
-    if watchlist_item.last_recorded_price is None and current_price is not None:
-        watchlist_item.last_recorded_price = current_price
-        update_fields.append('last_recorded_price')
-    watchlist_item.save(update_fields=update_fields)
-
-    messages.success(
-        request,
-        f"Alert set for {product.name} at ₹{target_price}. You will be notified when price goes below this value.",
-    )
-    return redirect('dashboard:alerts')
-
-
-
-@login_required
 def dashboard_alerts(request):
     active_alerts = (
         Watchlist.objects
@@ -847,28 +730,50 @@ def dashboard_alerts(request):
     )
 
 
-def _inject_watchlist_status(user, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    if not user.is_authenticated or not rows:
-        return rows
-        
-    product_ids = [r['id'] for r in rows if 'id' in r]
-    if not product_ids:
-        return rows
-        
-    from apps.scraper.models import Watchlist
-    watched_ids = set(Watchlist.objects.filter(user=user, product_id__in=product_ids).values_list('product_id', flat=True))
-    
-    for r in rows:
-        r['is_watchlisted'] = r.get('id') in watched_ids
-        
-    return rows
+@login_required
+@require_POST
+def set_price_alert_from_product(request):
+    product_id = request.POST.get('product_id')
+    target_value = request.POST.get('target_price')
+
+    if not product_id:
+        messages.error(request, "Product is required to set an alert.")
+        return redirect('dashboard:alerts')
+
+    product = get_object_or_404(Product, id=product_id)
+
+    try:
+        target_price = Decimal(target_value)
+        if target_price <= 0:
+            raise InvalidOperation()
+    except (InvalidOperation, TypeError, ValueError):
+        messages.error(request, "Enter a valid alert price.")
+        return redirect('dashboard:alerts')
+
+    current_price = product.current_lowest_price
+    watchlist_item, _ = Watchlist.objects.get_or_create(
+        user=request.user,
+        product=product,
+        defaults={
+            'added_price': current_price,
+            'last_recorded_price': current_price,
+        },
+    )
+
+    watchlist_item.target_price = target_price
+    watchlist_item.last_notified_price = None
+    watchlist_item.save(update_fields=['target_price', 'last_notified_price'])
+
+    messages.success(
+        request,
+        f"Alert set for {product.name} at ₹{target_price}.",
+    )
+    return redirect('dashboard:alerts')
+
 
 @login_required
 def api_products(request):
-    """
-    HTMX endpoint returning table rows for products.
-    """
-
+    """HTMX endpoint returning table rows for products."""
     products = (
         Product.objects.filter(is_active=True)
         .prefetch_related(
@@ -884,8 +789,6 @@ def api_products(request):
         min_value = min(numeric_prices) if numeric_prices else None
 
         status = product.trend_indicator or 'LIVE'
-        
-        # Determine delta off the first two prices if available for legacy support
         delta_label = 'STABLE_00'
         if len(numeric_prices) >= 2:
             delta_amount = Decimal(numeric_prices[0]) - Decimal(numeric_prices[1])
@@ -900,58 +803,45 @@ def api_products(request):
                 delta_label = f"{prefix}_{magnitude_label}"
 
         if not prices:
-             product_list.append({
-                 'id': product.id,
-                 'name': product.name.upper()[:30],
-                 'store': 'N/A',
-                 'price': 'N/A',
-                 'min': 'N/A',
-                 'delta': 'STABLE_00',
-                 'status': status,
-             })
-             continue
-             
+            product_list.append({
+                'id': product.id,
+                'name': product.name.upper()[:30],
+                'store': 'N/A',
+                'price': 'N/A',
+                'min': 'N/A',
+                'delta': 'STABLE_00',
+                'status': status,
+            })
+            continue
+
         for sp in prices:
-             product_list.append({
-                 'id': product.id,
-                 'name': product.name.upper()[:30],
-                 'store': sp.store_name.upper(),
-                 'price': _format_rupees(sp.current_price),
-                 'min': _format_rupees(min_value),
-                 'delta': delta_label,
-                 'status': status,
-             })
+            product_list.append({
+                'id': product.id,
+                'name': product.name.upper()[:30],
+                'store': sp.store_name.upper(),
+                'price': _format_rupees(sp.current_price),
+                'min': _format_rupees(min_value),
+                'delta': delta_label,
+                'status': status,
+            })
 
     if not product_list:
         product_list = [
             {'id': 1, 'name': 'IPHONE-14-128-BLK', 'store': 'AMAZON', 'price': '₹61,499', 'min': '₹61,499', 'delta': 'DROP_1.5K', 'status': 'LIVE'},
-            {'id': 1, 'name': 'IPHONE-14-128-BLK', 'store': 'FLIPKART', 'price': '₹62,000', 'min': '₹61,499', 'delta': 'DROP_1.5K', 'status': 'LIVE'},
-            {'id': 2, 'name': 'MACBOOK-AIR-M2-256', 'store': 'BHC', 'price': '₹88,990', 'min': '₹88,990', 'delta': 'STABLE_00', 'status': 'TRACK'},
         ]
 
-    product_list = _inject_watchlist_status(request.user, product_list)
     return render(request, 'dashboard/partials/product_rows.html', {'products': product_list})
+
 
 @login_required
 def api_product_history(request, id):
-    """
-    Product-centric price intelligence endpoint.
+    period = request.GET.get('period', '7d')
+    chart_payload = _chart_payload(product_id=id, period=period)
 
-    - Default: returns JSON payload for existing ApexCharts integration.
-    - HTMX `view=panel`: returns a rich product detail + comparison panel
-      rendered via `dashboard/partials/product_detail_panel.html`.
-    """
-
-    # Always compute the chart payload (used by both JSON and panel views)
-    chart_payload = _chart_payload(product_id=id)
-
-    # If this is an HTMX request asking for the full detail panel, render HTML
     view_mode = request.GET.get('view') or request.GET.get('mode')
-    is_htmx = request.headers.get('HX-Request') == 'true' or request.META.get('HTTP_HX_REQUEST') == 'true'
+    is_htmx = request.headers.get('HX-Request') == 'true'
 
     if is_htmx and view_mode == 'panel':
-        from django.shortcuts import get_object_or_404
-
         try:
             product = get_object_or_404(
                 Product.objects.select_related('category').prefetch_related(
@@ -959,237 +849,162 @@ def api_product_history(request, id):
                 ),
                 id=id,
             )
-        except Exception as e:
-            logger.error(f"Failed to load product {id}: {str(e)}")
-            return HttpResponse(
-                f'<div class="px-4 py-4 text-center text-red-400 font-mono text-xs">Error loading product details: Product not found</div>',
-                status=200
-            )
+        except Exception:
+            return HttpResponse('<div class="px-4 py-4 text-center text-red-400 font-mono text-xs">Error loading product</div>')
 
-        # Build store-level comparison data
-        stores: List[Dict[str, Any]] = []
+        stores = []
         for sp in product.prices.all():
-            stores.append(
-                {
-                    'name': sp.store_name,
-                    'price': sp.current_price,
-                    'price_display': _format_rupees(sp.current_price),
-                    'available': bool(getattr(sp, 'is_available', True)),
-                    'availability_label': 'In Stock' if getattr(sp, 'is_available', True) else 'Out of Stock',
-                    'last_updated': sp.last_updated,
-                    'product_url': sp.product_url,
-                }
-            )
+            stores.append({
+                'name': sp.store_name,
+                'price': sp.current_price,
+                'price_display': _format_rupees(sp.current_price),
+                'available': bool(getattr(sp, 'is_available', True)),
+                'availability_label': 'In Stock' if getattr(sp, 'is_available', True) else 'Out of Stock',
+                'last_updated': sp.last_updated,
+                'product_url': sp.product_url,
+            })
 
-        # Sort by lowest price first, pushing unknown prices to the end
-        def _price_key(row: Dict[str, Any]):
-            price = row.get('price')
-            if price is None:
-                return (1, Decimal('0'))
-            try:
-                return (0, Decimal(price))
-            except Exception:
-                return (0, Decimal('0'))
-
-        stores_sorted = sorted(stores, key=_price_key)
-
-        # Derive header metrics
+        stores_sorted = sorted(stores, key=lambda s: (0, s['price']) if s['price'] is not None else (1, Decimal('0')))
         current_lowest_price = product.current_lowest_price
-        if current_lowest_price is None and stores_sorted:
-            first_price = stores_sorted[0].get('price')
-            if first_price is not None:
-                current_lowest_price = first_price
-
         num_stores = len([s for s in stores_sorted if s.get('price') is not None])
-
-        # Compute insights from full PriceHistory for this product
-        history_qs = PriceHistory.objects.filter(store_price__product_id=product.id)
-        lowest_price = highest_price = avg_price = None
-        change_pct = None
-        trend_label = product.trend_indicator or 'STABLE'
-
-        if history_qs.exists():
-            prices = list(history_qs.values_list('price', flat=True))
-            try:
-                lowest_price = min(prices)
-                highest_price = max(prices)
-                avg_price = sum(prices) / len(prices)
-            except Exception:
-                lowest_price = highest_price = avg_price = None
-
-            ordered = history_qs.order_by('recorded_at')
-            first_point = ordered.first()
-            last_point = ordered.last()
-            if first_point and last_point and first_point.price:
-                try:
-                    delta = Decimal(last_point.price) - Decimal(first_point.price)
-                    change_pct = (delta / Decimal(first_point.price)) * Decimal('100')
-                    if change_pct > 0:
-                        trend_label = 'UP'
-                    elif change_pct < 0:
-                        trend_label = 'DOWN'
-                    else:
-                        trend_label = 'STABLE'
-                except Exception:
-                    change_pct = None
-
-        # Watchlist and alert-related context
-        is_watchlisted = False
-        active_alerts_count = 0
-        if request.user.is_authenticated:
-            is_watchlisted = Watchlist.objects.filter(user=request.user, product=product).exists()
-            # Approximate alerts by matching any store URL for this product
-            product_urls = [s['product_url'] for s in stores_sorted if s.get('product_url')]
-            if product_urls:
-                active_alerts_count = PriceAlert.objects.filter(
-                    is_triggered=False,
-                    product_url__in=product_urls,
-                ).count()
-
-        insights = {
-            'lowest_price_display': _format_rupees(lowest_price),
-            'highest_price_display': _format_rupees(highest_price),
-            'avg_price_display': _format_rupees(avg_price),
-            'change_pct_display': f"{change_pct:.1f}%" if change_pct is not None else "N/A",
-            'trend_label': trend_label,
-            'active_alerts_count': active_alerts_count,
-        }
-
-        # Serialize chart payload for the embedded chart widget
-        chart_json = json.dumps(chart_payload)
 
         context = {
             'product': product,
             'stores': stores_sorted,
             'current_lowest_price_display': _format_rupees(current_lowest_price),
             'num_stores': num_stores,
-            'trend_label': trend_label,
-            'chart_json': chart_json,
-            'insights': insights,
-            'is_watchlisted': is_watchlisted,
+            'trend_label': product.trend_indicator or 'STABLE',
+            'chart_json': json.dumps(chart_payload),
+            'insights': {
+                'lowest_price_display': _format_rupees(current_lowest_price),
+                'highest_price_display': 'N/A',
+                'avg_price_display': 'N/A',
+                'change_pct_display': 'N/A',
+                'trend_label': product.trend_indicator or 'STABLE',
+            },
+            'is_watchlisted': Watchlist.objects.filter(user=request.user, product=product).exists() if request.user.is_authenticated else False,
         }
-
         return render(request, 'dashboard/partials/product_detail_panel.html', context)
 
-    # Default behaviour: JSON payload for existing chart consumers
     return JsonResponse(chart_payload)
+
 
 @login_required
 def api_watchlist(request):
-    """
-    HTMX endpoint for watchlist panel.
-    """
-
+    """HTMX endpoint for watchlist panel."""
     items = _watchlist_items(request.user if request else None)
     return render(request, 'dashboard/partials/watchlist_items.html', {'items': items})
 
+
 @login_required
 def api_system_health(request):
-    """
-    HTMX endpoint for system health.
-    """
-
+    """HTMX endpoint for system health."""
     context = _system_health_snapshot()
     return render(request, 'dashboard/partials/system_health_content.html', context)
 
+
 @login_required
+@require_http_methods(["GET", "POST"])
 def api_search(request):
-    """
-    HTMX POST endpoint for universal search (text).
-    """
-    query = request.POST.get('q', '').strip()
+    """HTMX endpoint for universal search with pagination."""
+    query = (request.POST.get('q') or request.GET.get('q', '')).strip()
+    page_number = request.GET.get('page') or request.POST.get('page') or 1
+
     if not query:
         return render(request, 'dashboard/partials/search_results.html', {'query': '', 'results': []})
 
     cleaned = normalize_query(query)
     clean_q = cleaned.get('clean') or query
-    service = ScraperService()
-    is_htmx = request.headers.get('HX-Request') == 'true' or request.META.get('HTTP_HX_REQUEST') == 'true'
+    is_htmx = request.headers.get('HX-Request') == 'true'
+
+    cache_key = f"search_results_{clean_q.replace(' ', '_').lower()}"
+    results_data = cache.get(cache_key)
+
     try:
-        results = service.scrape(clean_q)
-        if not results:
-            error_msg = service.last_error or 'Price data unavailable via SerpAPI.'
-            if is_htmx:
-                return HttpResponse(
-                    f'<tr><td colspan="6" class="px-4 py-4 text-center text-[#ff99b5]">{error_msg}</td></tr>',
-                )
-            return render(
-                request,
-                'dashboard/partials/search_results.html',
-                {
-                    'query': clean_q,
-                    'results': [],
-                    'error': error_msg,
-                },
-            )
+        if not results_data:
+            service = ScraperService()
+            scrape_results = service.scrape(clean_q, limit=18)
 
-        display_results = [
-            {
-                'name': r.get('name'),
-                'store': r.get('store'),
-                'price': _format_rupees(r.get('price')),
-                'url': r.get('url'),
-                'rating': r.get('rating'),
-            } for r in results
-        ]
+            if not scrape_results:
+                error_msg = service.last_error or 'Price data unavailable.'
+                if is_htmx:
+                    return HttpResponse(
+                        f'<tr><td colspan="6" class="px-4 py-4 text-center text-[#ff99b5]">{error_msg}</td></tr>',
+                    )
+                return render(request, 'dashboard/partials/search_results.html', {'query': clean_q, 'results': [], 'error': error_msg})
 
-        persisted = service.persist_results(clean_q, cleaned.get('raw'), results)
-        product = persisted.get('product')
-        rows = persisted.get('rows', [])
-        chart = _chart_payload(product_id=product.id) if product else {}
+            persisted = service.persist_results(clean_q, cleaned.get('raw'), scrape_results)
+            product = persisted.get('product')
+            rows = persisted.get('rows', [])
 
-        # If HTMX target is table body, render product rows
-        if is_htmx:
-            rows = _inject_watchlist_status(request.user, rows)
-            html = render(request, 'dashboard/partials/product_rows.html', {'products': rows}).content.decode('utf-8')
+            results_data = {
+                'rows': rows,
+                'chart_id': product.id if product else None
+            }
+            cache.set(cache_key, results_data, 600)
+
+        rows = results_data.get('rows', [])
+        chart_id = results_data.get('chart_id')
+
+        paginator = Paginator(rows, 6)
+        page_obj = paginator.get_page(page_number)
+
+        chart_script = ""
+        if str(page_number) == "1" or page_number == 1:
+            chart = _chart_payload(product_id=chart_id) if chart_id else {}
             if chart.get('series'):
-                html += """
+                chart_script = """
 <script>
 if(window.ApexCharts){
     try{
         ApexCharts.exec('priceHistoryChart', 'updateSeries', %s);
         ApexCharts.exec('priceHistoryChart', 'updateOptions', { xaxis: { categories: %s } });
-        const display = document.getElementById('current-product-display');
-        if (display) display.innerText = '- ' + '%s';
     }catch(e){ console.error('chart update', e); }
 }
 </script>
-""" % (json.dumps(chart.get('series', [])), json.dumps(chart.get('categories', [])), clean_q.upper())
-            return HttpResponse(html)
+""" % (json.dumps(chart.get('series', [])), json.dumps(chart.get('categories', [])))
 
-        # default render search panel results
-        return render(
-            request,
-            'dashboard/partials/search_results.html',
-            {
-                'query': clean_q,
-                'results': display_results,
-            },
-        )
+        layout = request.POST.get('layout') or request.GET.get('layout')
+        if is_htmx and layout != 'panel':
+            html = render(request, 'dashboard/partials/product_rows.html', {'products': page_obj, 'query': clean_q}).content.decode('utf-8')
+            return HttpResponse(html + chart_script)
+
+        context = {
+            'query': clean_q,
+            'results': page_obj,
+            'chart_script': chart_script,
+        }
+        return render(request, 'dashboard/partials/search_results.html', context)
+
     except Exception as exc:
         logger.exception('api_search failure')
         return render(request, 'dashboard/partials/search_results.html', {'query': clean_q, 'results': [], 'error': str(exc)})
 
 
-# Simple in-memory task store for development/demo purposes.
-# Key: task_id -> {'status': 'PENDING'|'SUCCESS'|'FAILURE', 'results': [...], 'chart': {...}, 'error': None}
-_IMAGE_TASKS: Dict[str, Dict[str, Any]] = {}
+# --- Image Search Helpers ---
+
+def _get_task(task_id: str) -> Dict[str, Any]:
+    return cache.get(f"image_task:{task_id}") or {}
+
+def _update_task(task_id: str, data: Dict[str, Any]):
+    current = _get_task(task_id)
+    current.update(data)
+    cache.set(f"image_task:{task_id}", current, 3600)
 
 
 def _perform_visual_identification(path: str) -> str:
     """Helper to perform Strategy 1 (Lens) and Strategy 2 (OCR) in the background."""
     recognized_query = ""
-    
+
     # Strategy 1: SerpAPI Google Lens
     try:
         SERPAPI_API_KEY = getattr(settings, 'SERPAPI_API_KEY', '') or os.getenv('SERPAPI_API_KEY', '')
         if SERPAPI_API_KEY:
             public_url = None
             try:
-                import base64
                 with open(path, 'rb') as img_file:
                     img_b64 = base64.b64encode(img_file.read()).decode('utf-8')
-                
+
                 upload_resp = requests.post(
                     'https://freeimage.host/api/1/upload',
                     data={'key': '6d207e02198a847aa98d0a2a901485a5', 'source': img_b64, 'format': 'json'},
@@ -1197,8 +1012,8 @@ def _perform_visual_identification(path: str) -> str:
                 )
                 if upload_resp.status_code == 200:
                     public_url = upload_resp.json().get('image', {}).get('url')
-                
-                if not public_url: # ImgBB Fallback
+
+                if not public_url:
                     upload_resp = requests.post(
                         'https://api.imgbb.com/1/upload',
                         data={'key': '65239e94444586d11b33345426f8d02c', 'image': img_b64},
@@ -1206,7 +1021,7 @@ def _perform_visual_identification(path: str) -> str:
                     )
                     public_url = upload_resp.json().get('data', {}).get('url') if upload_resp.status_code == 200 else None
 
-                if not public_url: # Catbox Fallback
+                if not public_url:
                     cat_resp = requests.post('https://catbox.moe/user/api.php', data={'reqtype': 'fileupload'}, files={'fileToUpload': open(path, 'rb')}, timeout=20)
                     if cat_resp.status_code == 200 and cat_resp.text.startswith('http'):
                         public_url = cat_resp.text.strip()
@@ -1219,31 +1034,27 @@ def _perform_visual_identification(path: str) -> str:
                 if lens_resp.status_code == 200:
                     lens_data = lens_resp.json()
                     logger.info('Google Lens results keys: %s', list(lens_data.keys()))
-                    
-                    # 1. Knowledge Graph (High precision)
+
                     knowledge = lens_data.get('knowledge_graph', {})
                     if isinstance(knowledge, list) and knowledge:
                         recognized_query = knowledge[0].get('title', '')
                     elif isinstance(knowledge, dict):
                         recognized_query = knowledge.get('title', '') or knowledge.get('name', '')
-                    
-                    # 2. Reverse Image Search (Medium precision)
+
                     if not recognized_query:
                         reverse = lens_data.get('reverse_image_search', {})
                         if isinstance(reverse, dict):
-                            recognized_query = reverse.get('search_link_text') # Highly descriptive
-                    
-                    # 3. Visual Matches (High volume fallback)
+                            recognized_query = reverse.get('search_link_text')
+
                     if not recognized_query:
                         visual_matches = lens_data.get('visual_matches', [])
                         if visual_matches:
-                            # Prefer the first descriptive title
                             recognized_query = visual_matches[0].get('title', '')
-                    
-                    # 4. Related Searches (General fallback)
+
                     if not recognized_query:
                         related = lens_data.get('related_searches', [])
-                        if related: recognized_query = related[0].get('query', '')
+                        if related:
+                            recognized_query = related[0].get('query', '')
     except Exception as e:
         logger.error('Background Lens identification failed: %s', e)
 
@@ -1254,7 +1065,8 @@ def _perform_visual_identification(path: str) -> str:
             from PIL import Image
             img = Image.open(path)
             tesseract_path = getattr(settings, 'TESSERACT_CMD', None)
-            if tesseract_path: pytesseract.pytesseract.tesseract_cmd = tesseract_path
+            if tesseract_path:
+                pytesseract.pytesseract.tesseract_cmd = tesseract_path
             raw_text = pytesseract.image_to_string(img)
             if raw_text and len(raw_text.strip()) > 3:
                 recognized_query = raw_text
@@ -1268,7 +1080,7 @@ def _simulate_image_workflow(task_id: str, image_path: str, initial_ocr: str = '
     """Consolidated background worker: Identify -> Clean -> Scrape -> Persist."""
     try:
         logger.info('[TASK %s] Starting background image workflow. Path: %s', task_id, image_path)
-        
+
         # Step 1: Visual Identification
         query = initial_ocr
         if not query or len(query.strip()) < 3:
@@ -1279,52 +1091,48 @@ def _simulate_image_workflow(task_id: str, image_path: str, initial_ocr: str = '
                 logger.warning('[TASK %s] Identification stage FAILED. Falling back to filename: %s', task_id, query)
             else:
                 logger.info('[TASK %s] Identification stage SUCCESS. Identified: %s', task_id, query)
-        
-        # Update task state with the identified query ASAP for the poller
+
         cleaned = normalize_query(query)
         clean_q = cleaned.get('clean', '').strip()
-        
-        if not clean_q or len(clean_q) < 3:
-             logger.warning('[TASK %s] Identification failed to produce a valid query. Aborting.', task_id)
-             _IMAGE_TASKS[task_id].update({'status': 'FAILURE', 'error': 'Could not recognize any product in this image. Please try a clearer photo with visible text.'})
-             return
 
-        _IMAGE_TASKS[task_id]['query'] = clean_q
-        
-        # Step 2: Search/Scrape 
+        if not clean_q or len(clean_q) < 3:
+            logger.warning('[TASK %s] Identification failed to produce a valid query. Aborting.', task_id)
+            _update_task(task_id, {'status': 'FAILURE', 'error': 'Could not recognize any product in this image. Please try a clearer photo with visible text.'})
+            return
+
+        _update_task(task_id, {'query': clean_q})
+
+        # Step 2: Search/Scrape
         logger.info('[TASK %s] Scraper stage START. Query: %s', task_id, clean_q)
         service = ScraperService()
         results = service.scrape(clean_q)
-        
+
         if not results:
             msg = service.last_error or 'Price data unavailable via SerpAPI.'
             logger.warning('[TASK %s] Scraper stage FAILED. Msg: %s', task_id, msg)
-            _IMAGE_TASKS[task_id].update({'status': 'FAILURE', 'error': msg})
+            _update_task(task_id, {'status': 'FAILURE', 'error': msg})
             return
 
         logger.info('[TASK %s] Scraper stage SUCCESS. Results: %d', task_id, len(results))
         persisted = service.persist_results(clean_q, cleaned.get('raw'), results)
         product = persisted.get('product')
         chart = _chart_payload(product_id=product.id) if product else {}
-        
-        _IMAGE_TASKS[task_id].update({
-            'status': 'SUCCESS', 
-            'results': persisted.get('rows', []), 
-            'chart': chart, 
+
+        _update_task(task_id, {
+            'status': 'SUCCESS',
+            'results': persisted.get('rows', []),
+            'chart': chart,
             'error': None
         })
         logger.info('[TASK %s] Workflow COMPLETE.', task_id)
     except Exception as exc:
         logger.exception('[TASK %s] UNEXPECTED FATAL ERROR.', task_id)
-        _IMAGE_TASKS[task_id].update({'status': 'FAILURE', 'error': str(exc)})
+        _update_task(task_id, {'status': 'FAILURE', 'error': str(exc)})
 
 
 @login_required
 def api_image_search(request):
-    """Accepts an uploaded image and returns a task id for polling.
-
-    Frontend expects JSON: { task_id: '<id>', ocr_text?: '...' }
-    """
+    """Accepts an uploaded image and returns a task id for polling."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
@@ -1332,14 +1140,12 @@ def api_image_search(request):
     if not upload:
         return JsonResponse({'error': 'no file'}, status=400)
 
-    # Basic validation: type and size
     allowed_types = {'image/png', 'image/jpeg', 'image/webp'}
     if upload.content_type not in allowed_types:
         return JsonResponse({'error': 'unsupported file type'}, status=400)
     if upload.size and upload.size > 5 * 1024 * 1024:
         return JsonResponse({'error': 'file too large'}, status=400)
 
-    # Save to a temp path under MEDIA_ROOT or fallback to /tmp
     media_root = getattr(settings, 'MEDIA_ROOT', None) or os.path.join(os.getcwd(), 'tmp')
     os.makedirs(media_root, exist_ok=True)
     filename = f"img_{uuid.uuid4().hex[:8]}.png"
@@ -1349,114 +1155,109 @@ def api_image_search(request):
             fh.write(chunk)
 
     task_id = uuid.uuid4().hex
-    # Initialize task state
-    _IMAGE_TASKS[task_id] = {'status': 'PENDING', 'results': [], 'chart': {}, 'error': None, 'query': ''}
+    _update_task(task_id, {'status': 'PENDING', 'results': [], 'chart': {}, 'error': None, 'query': ''})
 
-    # Start background identification & search immediately
+    # Try Celery first, fall back to thread
     try:
-        # Pass path to image_search_task; it will perform identification internally
+        from apps.dashboard.tasks import image_search_task
         image_search_task.apply_async(args=(path, None), task_id=task_id)
-    except Exception:
-        # Fallback to local thread
+        _update_task(task_id, {'celery_id': task_id})
+    except Exception as e:
+        logger.warning("Celery dispatch failed, falling back to local thread: %s", e)
         t = threading.Thread(target=_simulate_image_workflow, args=(task_id, path), daemon=True)
         t.start()
 
     is_htmx = request.headers.get('HX-Request') == 'true' or request.META.get('HTTP_HX_REQUEST') == 'true'
     if is_htmx:
         return render(request, 'dashboard/partials/image_loading.html', {'task_id': task_id}, status=202)
-    
+
     return JsonResponse({'task_id': task_id}, status=202)
 
 
 @login_required
-def api_result(request, task_id: str):
-    """Poll endpoint for image workflow results. Returns JSON for the JS poller."""
-    
-    # Check memory cache/Celery for task
-    task = _IMAGE_TASKS.get(task_id, {})
+def api_result(request, task_id):
+    """Poll endpoint for image workflow results."""
+    task = _get_task(task_id)
     if not task:
-        return JsonResponse({'status': 'FAILURE', 'error': 'Task not found'}, status=404)
-    
-    # Optional Redis/Celery status check
-    if task.get('celery_id'):
-        from celery.result import AsyncResult
+        return JsonResponse({'status': 'FAILURE', 'error': 'Task ID not recognized'}, status=404)
+
+    # Check Celery result if not already successful
+    if task.get('status') != 'SUCCESS':
+        celery_id = task.get('celery_id') or task_id
         try:
-            res = AsyncResult(task['celery_id'])
+            from celery.result import AsyncResult
+            res = AsyncResult(celery_id)
             if res.ready():
                 data = res.result or {}
-                task.update({
-                    'status': 'SUCCESS' if res.status == 'SUCCESS' else 'FAILURE',
-                    'results': data.get('results', []),
-                    'chart': data.get('chart', {}),
-                    'error': data.get('error') or (str(data) if res.status == 'FAILURE' else None)
-                })
-                _IMAGE_TASKS[task_id] = task
-        except Exception:
-            pass
+                if isinstance(data, dict):
+                    task.update({
+                        'status': 'SUCCESS' if res.status == 'SUCCESS' else 'FAILURE',
+                        'results': data.get('results', []),
+                        'chart': data.get('chart', {}),
+                        'query': data.get('clean_query') or task.get('query', ''),
+                        'error': data.get('error') or (str(data) if res.status == 'FAILURE' else None)
+                    })
+                    _update_task(task_id, task)
+        except Exception as e:
+            logger.debug("Celery result check failed for %s: %s", task_id, e)
 
     status_val = task.get('status', 'PENDING')
     query = task.get('query', '')
-    
-    # Prepare payload exactly as dashboard_base.html expects it
+
+    panel_html = ""
+    if status_val == 'SUCCESS':
+        from django.template.loader import render_to_string
+        panel_html = render_to_string('dashboard/partials/search_results.html', {
+            'query': query,
+            'results': task.get('results', [])
+        })
+
     payload = {
         'status': status_val,
         'product_name': query,
         'results': task.get('results', []),
         'chart': task.get('chart', {}),
-        'error': task.get('error')
+        'error': task.get('error'),
+        'panel_html': panel_html
     }
-    
     return JsonResponse(payload)
 
 
 @login_required
 def api_image_search_form(request):
-    """Serve the image upload card so the user can search again without reloading."""
     return render(request, 'dashboard/partials/image_upload_card.html')
 
 
 @login_required
 @require_http_methods(["POST"])
 def api_activate_dip_alert(request):
-    """Create a price drop alert for a product.
-    
-    Accepts product_id via POST. Calculates a 10% drop target from 
-    the product's current lowest price and creates a Watchlist alert.
-    """
     product_id = request.POST.get('product_id')
-    
+
     if not product_id:
-        # Fallback: use the most recently updated product
         product = Product.objects.order_by('-updated_at').first()
     else:
         product = Product.objects.filter(id=product_id).first()
-    
+
     if not product:
         return HttpResponse(
-            '<div class="text-[#ff99b5] text-xs font-mono p-2 text-center">'
-            '<i class="fas fa-exclamation-triangle mr-1"></i> No product found. Search for a product first.</div>',
+            '<div class="text-[#ff99b5] text-xs font-mono p-2 text-center">No product found.</div>',
             status=400
         )
-    
-    # Calculate target: 10% below current lowest price
+
     current_price = product.current_lowest_price
     if not current_price or current_price <= 0:
-        # Try to get from store prices
-        from apps.scraper.models import StorePrice
         sp = StorePrice.objects.filter(product=product, current_price__gt=0).order_by('current_price').first()
         current_price = sp.current_price if sp else None
-    
+
     if not current_price:
         return HttpResponse(
-            '<div class="text-[#ff99b5] text-xs font-mono p-2 text-center">'
-            '<i class="fas fa-exclamation-triangle mr-1"></i> No price data available for this product yet.</div>',
+            '<div class="text-[#ff99b5] text-xs font-mono p-2 text-center">No price data available.</div>',
             status=400
         )
-    
-    drop_pct = Decimal('0.10')  # 10% drop
+
+    drop_pct = Decimal('0.10')
     target_price = (current_price * (1 - drop_pct)).quantize(Decimal('0.01'))
-    
-    # Create or update watchlist entry with target
+
     watchlist_item, created = Watchlist.objects.get_or_create(
         user=request.user,
         product=product,
@@ -1466,17 +1267,16 @@ def api_activate_dip_alert(request):
             'target_price': target_price,
         },
     )
-    
+
     if not created:
         watchlist_item.target_price = target_price
         watchlist_item.last_recorded_price = current_price
         watchlist_item.last_notified_price = None
         watchlist_item.save(update_fields=['target_price', 'last_recorded_price', 'last_notified_price'])
-    
-    # Return success confirmation HTML
+
     formatted_target = f"₹{int(target_price):,}"
     formatted_current = f"₹{int(current_price):,}"
-    
+
     html = f'''
     <div class="w-full mt-6 py-3 border border-brand-success bg-brand-success/10 text-brand-success font-mono text-xs uppercase tracking-widest text-center space-y-1">
         <div><i class="fas fa-bell mr-1"></i> DIP ALERT ACTIVE</div>

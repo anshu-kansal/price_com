@@ -1,4 +1,5 @@
-<div class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center py-20" x-data="{ ocrResult: null }">
+<div class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center py-20" 
+     x-data="{ ocrResult: null }">
 
     <!-- Title / Branding -->
     <div class="mb-12 text-center">
@@ -21,7 +22,9 @@
         <!-- Input -->
         <div class="flex-1 flex items-center pl-4">
             <span class="text-[#00e5ff] font-mono mr-4 animate-pulse">></span>
+            <input type="hidden" name="layout" value="panel">
             <input type="text" name="q" placeholder="QUERY SKU, BRAND, OR URL_LINK..."
+                value="{{ persist_q|default:'' }}"
                 class="w-full bg-transparent border-none text-lg md:text-xl text-[#e2e8f0] font-mono placeholder-[#1A1F28] focus:outline-none focus:ring-0">
         </div>
 
@@ -59,7 +62,11 @@
                         document.querySelector('input[name=q]').value = data.ocr_text; 
                         setTimeout(() => $el.closest('form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })), 300); 
                     } else if (data.task_id) { 
-                        /* preserve behavior */ 
+                        if (window.startImagePoll) {
+                            window.startImagePoll(data.task_id);
+                        } else {
+                            console.error('Global startImagePoll function not found.');
+                        }
                     } 
                 })
                 .catch(err => { 

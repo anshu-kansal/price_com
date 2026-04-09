@@ -1,18 +1,51 @@
-<div class="terminal-panel p-4 h-full flex flex-col bg-[#05080c]">
+<div class="terminal-panel p-4 h-full flex flex-col bg-[#05080c]"
+    x-data="{
+        period: '7d',
+        productId: null,
+        loading: false,
+        initId() {
+            const seedEl = document.getElementById('chart-seed-data');
+            if (seedEl) {
+                const seedData = JSON.parse(seedEl.textContent);
+                if (seedData.product_id) this.productId = seedData.product_id;
+            }
+        },
+        updateChart(newPeriod) {
+            if (!this.productId || this.loading) return;
+            this.period = newPeriod;
+            this.loading = true;
+            fetch(`/dashboard/api/products/${this.productId}/history/?period=${newPeriod}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(window.priceHistoryChartRef && data.series) {
+                        try {
+                            window.priceHistoryChartRef.updateSeries(data.series);
+                            window.priceHistoryChartRef.updateOptions({ xaxis: { categories: data.categories }});
+                        } catch(e) { console.error('chart update error', e); }
+                    }
+                }).finally(() => { this.loading = false; });
+        }
+    }"
+    x-init="initId()"
+    @htmx:after-swap.document="initId()">
     <div class="flex items-center justify-between mb-4 pb-2 border-b border-brand-border">
         <div>
             <h2
                 class="text-sm font-bold text-brand-textHighlight flex items-center font-mono uppercase tracking-widest">
                 <span class="text-brand-accent mr-2">::</span> TELEMETRY_FEED <span id="current-product-display" class="ml-4 text-brand-textMuted uppercase text-[10px]"></span>
+                <i x-show="loading" class="fas fa-circle-notch fa-spin ml-2 text-brand-accent text-xs"></i>
             </h2>
         </div>
         <div class="flex items-center bg-[#0a0d14] border border-brand-border h-6">
-            <button
-                class="px-3 h-full text-[10px] font-mono text-[#080B0F] bg-brand-accent border-r border-brand-border">7D</button>
-            <button
-                class="px-3 h-full text-[10px] font-mono text-brand-textMuted hover:text-brand-textHighlight transition-none border-r border-brand-border">1M</button>
-            <button
-                class="px-3 h-full text-[10px] font-mono text-brand-textMuted hover:text-brand-textHighlight transition-none">YTD</button>
+            <button @click="updateChart('7d')"
+                :class="period === '7d' ? 'text-[#080B0F] bg-brand-accent' : 'text-brand-textMuted hover:text-brand-textHighlight bg-transparent'"
+                class="px-3 h-full text-[10px] font-mono border-r border-brand-border transition-none focus:outline-none">7D</button>
+            <button @click="updateChart('1m')"
+                :class="period === '1m' ? 'text-[#080B0F] bg-brand-accent' : 'text-brand-textMuted hover:text-brand-textHighlight bg-transparent'"
+                class="px-3 h-full text-[10px] font-mono border-r border-brand-border transition-none focus:outline-none">1M</button>
+            <button @click="updateChart('ytd')"
+                :class="period === 'ytd' ? 'text-[#080B0F] bg-brand-accent' : 'text-brand-textMuted hover:text-brand-textHighlight bg-transparent'"
+                class="px-3 h-full text-[10px] font-mono transition-none focus:outline-none">YTD</button>
         </div>
     </div>
 
@@ -79,7 +112,13 @@
                     categories: initialCategories,
                     axisBorder: { color: '#1A1F28' },
                     axisTicks: { color: '#1A1F28' },
-                    labels: { style: { colors: '#64748b', fontSize: '10px' }, rotate: -45 },
+                    labels: { 
+                        style: { colors: '#64748b', fontSize: '10px' }, 
+                        rotate: -45,
+                        hideOverlappingLabels: true,
+                        trim: true
+                    },
+                    tickAmount: 8,
                     crosshairs: {
                         show: true,
                         position: 'back',
@@ -87,6 +126,7 @@
                     }
                 },
                 yaxis: {
+                    forceNiceScale: true,
                     labels: {
                         style: { colors: '#64748b', fontSize: '10px' },
                         formatter: (val) => '₹' + Number(val).toLocaleString('en-IN')
@@ -112,7 +152,7 @@
                         formatter: (val) => val != null ? '₹' + Number(val).toLocaleString('en-IN') : 'N/A'
                     }
                 },
-                markers: { size: 3, strokeWidth: 0, hover: { size: 6 } },
+                markers: { size: 0, strokeWidth: 0, hover: { size: 6 } },
             });
 
         chart.render();
