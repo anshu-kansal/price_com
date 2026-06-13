@@ -1,0 +1,145 @@
+{% extends "dashboard/dashboard_base.html" %}
+
+{% block title %}TERMINAL | PRICECOM{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-brand-base text-sm">
+
+    <!-- Mobile Layout -->
+    <div class="pb-20">
+
+        <!-- Mobile Stats Cards -->
+        <div class="grid grid-cols-2 gap-3 p-4">
+            {% for card in stat_cards %}
+                <div class="bg-[#0B0E16] rounded-2xl p-4 border border-brand-border">
+                    <div class="text-[10px] text-brand-textMuted uppercase tracking-widest mb-2">{{ card.title }}</div>
+                    <div class="text-lg font-bold text-white mb-1">{{ card.value }}</div>
+                    <div class="text-[9px] text-brand-textMuted">{{ card.sublabel }}</div>
+                </div>
+            {% empty %}
+                <div class="bg-[#0B0E16] rounded-2xl p-4 border border-brand-border">
+                    <div class="text-[10px] text-brand-textMuted uppercase tracking-widest mb-2">Products Tracked</div>
+                    <div class="text-lg font-bold text-white mb-1">8,421</div>
+                    <div class="text-[9px] text-brand-textMuted">sync pending</div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Mobile Quick Buy Panel -->
+        <div class="bg-[#081017] rounded-2xl p-4 mx-4 mb-4 border border-brand-border">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-sm font-bold uppercase tracking-[0.28em] text-brand-textMuted">Quick Buy</h3>
+                    <p class="text-[10px] text-brand-textMuted mt-1">Top discounted offers</p>
+                </div>
+                <span class="text-[10px] uppercase tracking-[0.3em] text-brand-success">Live</span>
+            </div>
+
+            <div class="space-y-3">
+                {% for deal in quick_buy_deals %}
+                <div class="bg-[#0b111d] rounded-xl p-3 border border-brand-border">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 text-[9px] uppercase tracking-[0.3em] text-brand-textMuted mb-1">
+                                <span>{{ deal.store }}</span>
+                                <span class="text-brand-accent">•</span>
+                                <span>{{ deal.drop_pct }}</span>
+                            </div>
+                            <h4 class="text-sm font-semibold text-white truncate mb-1">{{ deal.name }}</h4>
+                            <p class="text-xs text-brand-success font-semibold">{{ deal.price }}</p>
+                        </div>
+                        {% if deal.url %}
+                        <a href="{{ deal.url }}" target="_blank" rel="noreferrer" class="flex-shrink-0 rounded-lg bg-brand-accent px-3 py-2 text-[10px] font-bold uppercase tracking-[0.3em] text-[#080B0F] hover:bg-white transition-all">
+                            Buy
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="bg-[#0b111d] rounded-xl p-4 text-xs text-brand-textMuted text-center">
+                    No buy opportunities available right now.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Mobile Price Table -->
+        <div class="bg-[#081017] rounded-2xl p-4 mx-4 mb-4 border border-brand-border">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-sm font-bold uppercase tracking-[0.28em] text-brand-textMuted">Live Prices</h3>
+                    <p class="text-[10px] text-brand-textMuted mt-1">Real-time price tracking</p>
+                </div>
+                <span class="text-[10px] uppercase tracking-[0.3em] text-brand-accent">Active</span>
+            </div>
+
+            <div id="mobile-price-table" hx-get="{% url 'dashboard:api_products' %}?mobile=true" hx-trigger="load, every 30s" hx-target="#mobile-price-table" hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-8">
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-accent mx-auto mb-2"></div>
+                        <p class="text-xs text-brand-textMuted">Loading price data...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Watchlist -->
+        <div class="bg-[#081017] rounded-2xl p-4 mx-4 mb-4 border border-brand-border">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-sm font-bold uppercase tracking-[0.28em] text-brand-textMuted">Watchlist</h3>
+                    <p class="text-[10px] text-brand-textMuted mt-1">Your tracked products</p>
+                </div>
+                <span class="text-[10px] uppercase tracking-[0.3em] text-brand-amber">{{ active_alerts }}</span>
+            </div>
+
+            <div id="mobile-watchlist" hx-get="{% url 'dashboard:api_watchlist' %}?mobile=true" hx-trigger="load, every 60s" hx-target="#mobile-watchlist" hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-8">
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-accent mx-auto mb-2"></div>
+                        <p class="text-xs text-brand-textMuted">Loading watchlist...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Prediction Panel -->
+        <div class="bg-[#081017] rounded-2xl p-4 mx-4 mb-4 border border-brand-border">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-sm font-bold uppercase tracking-[0.28em] text-brand-textMuted">Market Analysis</h3>
+                    <p class="text-[10px] text-brand-textMuted mt-1">AI-powered insights</p>
+                </div>
+                <span class="text-[10px] uppercase tracking-[0.3em] text-[#00e5ff]">{{ prediction.confidence }}%</span>
+            </div>
+
+            <div class="space-y-3">
+                <div class="bg-[#0b111d] rounded-xl p-3 border border-brand-border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold text-white uppercase tracking-[0.3em]">Signal</span>
+                        <span class="text-xs text-brand-accent font-bold">{{ prediction.signal }}</span>
+                    </div>
+                    <div class="text-[10px] text-brand-textMuted">
+                        {% for signal in prediction.signals %}
+                        <div class="mb-1">{{ signal }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-[#0b111d] rounded-xl p-3 border border-brand-border text-center">
+                        <div class="text-lg font-bold text-brand-success mb-1">{{ prediction.drop_probability }}%</div>
+                        <div class="text-[9px] text-brand-textMuted uppercase tracking-[0.3em]">Drop Probability</div>
+                    </div>
+                    <div class="bg-[#0b111d] rounded-xl p-3 border border-brand-border text-center">
+                        <div class="text-lg font-bold text-[#ffb000] mb-1">{{ prediction.smart_index }}</div>
+                        <div class="text-[9px] text-brand-textMuted uppercase tracking-[0.3em]">Smart Index</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

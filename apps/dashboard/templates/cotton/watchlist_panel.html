@@ -1,18 +1,15 @@
-<div class="terminal-panel p-5 h-full"
+<div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 shadow-sm space-y-4"
     hx-get="/dashboard/api/watchlist/"
     hx-trigger="load, every 120s"
     hx-target="this"
     hx-swap="innerHTML">
-    <div
-        class="text-[10px] font-mono text-brand-textMuted tracking-widest uppercase mb-4 border-b border-brand-border pb-2 flex justify-between">
-        <span>// WATCHLIST</span>
-        <span class="text-brand-accent">SYNCING...</span>
+    <div class="flex items-center justify-between border-b border-slate-100 dark:border-zinc-850 pb-2 text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-heading">
+        <span class="flex items-center gap-1.5"><i class="fas fa-heart text-indigo-500"></i> Watchlist Snippets</span>
+        <span class="text-[10px] text-indigo-600 dark:text-indigo-400">Syncing...</span>
     </div>
 
-    <div class="space-y-4 animate-pulse">
-        <div class="h-16 bg-[#0f131c] border border-brand-border"></div>
-        <div class="h-16 bg-[#0f131c] border border-brand-border"></div>
-        <div class="h-[1px] bg-brand-border w-full my-4"></div>
-        <div class="h-20 bg-[#0f131c] border border-brand-border"></div>
+    <div class="space-y-3 animate-pulse">
+        <div class="h-14 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl"></div>
+        <div class="h-14 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl"></div>
     </div>
 </div>

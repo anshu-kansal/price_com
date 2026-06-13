@@ -6,20 +6,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}PRICECOM TERMINAL{% endblock %}</title>
+    <title>{% block title %}PriceCom - Find the Best Price Before You Buy{% endblock %}</title>
+
+    <!-- Pre-load theme checking to prevent white flashing on load -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            if (theme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 
     <!-- Fonts: Geometric Sans + Monospaced -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
     <!-- Core Stack -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 
     <script>
@@ -28,307 +37,270 @@
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            base: '#080B0F',
-                            panel: 'transparent',
-                            border: '#1A1F28',
-                            accent: '#00e5ff', /* neon cyan */
-                            amber: '#ffb000',  /* amber */
-                            success: '#00ff9d',
-                            danger: '#ff3366',
-                            textHighlight: '#e2e8f0',
-                            textMuted: '#64748b'
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            200: '#a7f3d0',
+                            300: '#6ee7b7',
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                            950: '#022c22'
+                        },
+                        amber: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                            800: '#92400e',
+                            900: '#78350f',
+                            950: '#451a03'
+                        },
+                        slate: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617'
                         }
                     },
                     fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', '"Space Grotesk"', 'sans-serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
                         mono: ['"JetBrains Mono"', 'monospace'],
-                    },
-                    fontSize: {
-                        'xxs': '0.65rem',
-                    },
+                        heading: ['"Space Grotesk"', 'sans-serif']
+                    }
                 }
             }
         }
     </script>
 
     <style>
-        [x-cloak] {
-            display: none !important;
-        }
-
-        body {
-            background-color: #05070a;
-            color: #94a3b8;
-            overflow-x: hidden;
-            font-family: '"Plus Jakarta Sans"', sans-serif;
-            letter-spacing: -0.01em;
-        }
-
-        /* Glassmorphism Utilities */
-        .glass-panel {
-            background: rgba(13, 17, 23, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .glass-border {
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .neon-border-accent {
-            border-color: rgba(0, 229, 255, 0.3);
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.05);
-        }
-
-        .neon-text-accent {
-            color: #00e5ff;
-            text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
-        }
-
-        .premium-card {
-            background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
-            border: 1px solid rgba(255,255,255,0.05);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .premium-card:hover {
-            border-color: rgba(255,255,255,0.1);
-            background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
-            transform: translateY(-2px);
-        }
-
-        /* Number typography enforcement */
-        .tabular-nums {
-            font-variant-numeric: tabular-nums;
-        }
-
-        /* Scanline Overlay */
-        .scanline {
-            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.1) 50%, rgba(0, 0, 0, 0.1));
-            background-size: 100% 4px;
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 9999;
-            opacity: 0.03;
-        }
-
-        /* Terminal Panel Standard */
-        .terminal-panel {
-            background: #080B0F;
-            border: 1px solid #1A1F28;
-            border-radius: 0;
-            /* NO rounded corners */
-            box-shadow: none;
-            /* NO drop shadows */
-        }
-
-        /* Scrollbar Styling */
-        ::-webkit-scrollbar {
-            width: 4px;
-            height: 4px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #080B0F;
-            border-left: 1px solid #1A1F28;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #1A1F28;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #00e5ff;
-        }
-
-        .blinking-cursor {
-            display: inline-block;
-            width: 8px;
-            height: 1.2em;
-            background-color: #00e5ff;
-            animation: blink 1s step-end infinite;
-            vertical-align: middle;
-            margin-left: 2px;
-        }
-
-        @keyframes blink {
-
-            0%,
-            100% {
-                fill-opacity: 1;
-                opacity: 1;
-            }
-
-            50% {
-                fill-opacity: 0;
-                opacity: 0;
-            }
-        }
+        [x-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        .dark ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        .theme-transition * { transition: background-color 0.3s ease, border-color 0.3s ease, text-color 0.3s ease, fill 0.3s ease; }
     </style>
 </head>
 
-<body x-data="pricecomStore" class="antialiased h-screen overflow-hidden flex bg-brand-base text-sm">
+<body x-data="pricecomStore" class="antialiased min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-sm theme-transition flex flex-col">
 
     <form style="display:none">{% csrf_token %}</form>
 
     <!-- HTMX Global Error Banner -->
     <div id="global-error"
-        class="fixed top-0 inset-x-0 bg-[#ff3366] text-[#080B0F] font-mono text-center py-2 text-xs font-bold tracking-widest z-[9999]"
+        class="fixed top-0 inset-x-0 bg-red-600 text-white font-semibold text-center py-2.5 text-xs tracking-wider z-[9999] shadow-lg"
         x-data="{ show: false }" x-show="show" x-transition.opacity
         @htmx:response-error.window="show = true; setTimeout(() => show = false, 5000)" style="display: none;">
-        <i class="fas fa-exclamation-triangle mr-2"></i> CRITICAL_ERROR: BACKEND_CONNECTION_FAILED
+        <i class="fas fa-exclamation-triangle mr-2"></i> Operational Error: Unable to sync with price data matrix
     </div>
 
-    <div class="scanline"></div>
-
-    <!-- Mobile Sidebar Overlay -->
-    <div x-show="isSidebarOpen" x-transition.opacity class="fixed inset-0 bg-black/80 z-40 lg:hidden"
-        @click="isSidebarOpen = false" x-cloak></div>
-
-    <!-- Sidebar -->
-    <aside :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-        class="w-56 fixed inset-y-0 left-0 z-50 transform transition-transform duration-0 lg:relative lg:translate-x-0 flex flex-col h-full bg-brand-base border-r border-brand-border">
-        <!-- Logo Area -->
-        <div class="h-12 flex items-center justify-between px-4 border-b border-brand-border">
-            <span class="text-lg font-bold tracking-widest text-brand-textHighlight uppercase">PRICE<span
-                    class="text-brand-accent">COM</span></span>
-            <button @click="isSidebarOpen = false" class="lg:hidden text-brand-textMuted hover:text-brand-accent">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-
-        <!-- Navigation -->
-        <nav class="flex-1 py-4 flex flex-col font-mono text-xs uppercase tracking-wider">
-            <a href="{% url 'dashboard:index' %}"
-                class="flex items-center space-x-3 px-4 py-2 text-brand-accent bg-[#0a1922] border-l-2 border-brand-accent">
-                <span class="w-4 text-center">]</span>
-                <span class="font-bold">Dashboard</span>
-            </a>
-
-            <a href="{% url 'dashboard:watchlist' %}"
-                class="flex items-center space-x-3 px-4 py-2 text-brand-textMuted hover:text-brand-textHighlight hover:bg-[#0a111a] border-l-2 border-transparent transition-none">
-                <span class="w-4 text-center">></span>
-                <span>Watchlist <span x-show="$store.pricecomStore.watchlistCount > 0"
-                        x-text="'(' + $store.pricecomStore.watchlistCount + ')'"
-                        class="text-[#00e5ff] text-[10px] ml-1"></span></span>
-            </a>
-            <a href="{% url 'dashboard:alerts' %}"
-                class="flex items-center space-x-3 px-4 py-2 text-brand-textMuted hover:text-brand-textHighlight hover:bg-[#0a111a] border-l-2 border-transparent transition-none">
-                <span class="w-4 text-center">></span>
-                <span>Alerts</span>
-            </a>
-        </nav>
-
-        <!-- Sidebar Footer / System Status -->
-        <div class="p-4 border-t border-brand-border">
-            <div class="flex items-center space-x-2 text-[10px] text-brand-textMuted font-mono">
-                <div class="h-1.5 w-1.5 bg-brand-success rounded-none animate-pulse"
-                    :class="{'bg-[#ff3366]': $store.pricecomStore.systemError }"></div>
-                <span class="tracking-widest uppercase"
-                    x-text="$store.pricecomStore.systemError ? 'SYSTEM_FAULT' : 'CORE SYSTEM ONLINE'"></span>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Main Content Wrapper -->
-    <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative z-10">
-
-        <!-- Navbar -->
-        <header
-            class="h-12 bg-brand-base border-b border-brand-border sticky top-0 z-30 px-4 lg:px-6 flex items-center justify-between">
-            <!-- Mobile Menu Button & Search -->
-            <div class="flex items-center flex-1">
-                <button @click="isSidebarOpen = true"
-                    class="lg:hidden text-brand-textMuted hover:text-brand-accent mr-4">
-                    <i class="fas fa-bars"></i>
-                </button>
-
-                <div class="w-full max-w-lg relative hidden sm:flex items-center">
-                    <span class="text-brand-accent font-mono mr-2">></span>
-                    <input type="text" placeholder="Search SKU, brand, or product URL… [⌘K]"
-                        class="w-full bg-transparent border-none text-xs text-brand-textHighlight font-mono placeholder-brand-textMuted focus:outline-none focus:ring-0">
-                </div>
-            </div>
-
-            <!-- User Controls -->
-            <div class="flex items-center space-x-6 font-mono text-xs">
-                <div class="flex items-center space-x-2 text-brand-amber">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>ALERTS: <span x-text="$store.pricecomStore.activeAlerts"></span></span>
-                </div>
-
-                <div class="h-4 w-px bg-brand-border hidden sm:block"></div>
-
-                {% if user.is_authenticated %}
-                <div class="relative" x-data="{open:false}">
-                    <button @click="open = !open"
-                        class="flex items-center space-x-2 cursor-pointer uppercase tracking-wider text-brand-textMuted hover:text-brand-accent">
-                        <span class="text-[11px]">
-                            {% if user.username %}{{ user.username }}{% else %}{{ user.email }}{% endif %}
+    <!-- Consumer Top Navigation -->
+    <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Left: Logo -->
+                <div class="flex items-center shrink-0">
+                    <a href="{% url 'dashboard:index' %}" class="flex items-center gap-2 group">
+                        <div class="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition">
+                            <i class="fas fa-satellite-dish text-sm"></i>
+                        </div>
+                        <span class="text-xl font-bold text-slate-900 dark:text-white font-heading">
+                            Price<span class="text-emerald-600 dark:text-emerald-400">Com</span>
                         </span>
-                        <div class="h-1.5 w-1.5 bg-brand-accent"></div>
-                    </button>
+                    </a>
+                </div>
 
-                    <div x-show="open" x-cloak @click.away="open=false"
-                        class="absolute right-0 mt-2 w-44 bg-brand-base border border-brand-border text-xs rounded-sm overflow-hidden z-50">
-                        <a href="{% url 'logout' %}" class="block px-4 py-2 hover:bg-[#0a111a]">Logout</a>
+                <!-- Center: Global Search (Desktop only, hidden on mobile) -->
+                <div class="hidden md:flex flex-1 max-w-2xl mx-8">
+                    <div class="relative w-full flex items-center gap-2">
+                        <div class="relative flex-1">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-sm"></i>
+                            <input type="text" placeholder="Search for products, brands, or deals..."
+                                   class="w-full bg-slate-100 dark:bg-slate-950/50 border border-transparent dark:border-slate-800 rounded-full py-2.5 pl-10 pr-12 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white dark:focus:border-emerald-500 dark:focus:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
+                                   @keydown.window.prevent.cmd.k="document.querySelector('#global-nav-search').focus()"
+                                   @keydown.window.prevent.ctrl.k="document.querySelector('#global-nav-search').focus()"
+                                   id="global-nav-search"
+                                   @keyup.enter="
+                                       const q = $el.value.trim();
+                                       if (q) {
+                                           window.location.href = '{% url 'dashboard:index' %}?q=' + encodeURIComponent(q);
+                                       }
+                                   "
+                            >
+                            <div class="absolute right-4 top-1/2 -translate-y-1/2 flex gap-0.5 text-[10px] font-mono text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-sm bg-white dark:bg-slate-900">
+                                <span>⌘</span><span>K</span>
+                            </div>
+                        </div>
+                        <!-- 📷 Search by Image button -->
+                        <a href="{% url 'dashboard:visual_search' %}" title="Search by Image"
+                           class="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400 dark:hover:border-emerald-700 transition-all">
+                            <i class="fas fa-camera text-sm"></i>
+                        </a>
                     </div>
                 </div>
-                {% else %}
-                <div class="flex items-center space-x-2">
-                    <a href="{% url 'login' %}" class="text-brand-textMuted hover:text-brand-accent">Login</a>
-                </div>
-                {% endif %}
-            </div>
-        </header>
 
-        <!-- Main Dashboard Canvas -->
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-brand-base p-4 lg:p-6 pb-20 scroll-smooth">
-            <div class="max-w-[1600px] mx-auto">
-                {% block content %}{% endblock %}
+                <!-- Right: Nav Links & Actions -->
+                <div class="hidden md:flex items-center space-x-6">
+                    <nav class="flex space-x-6 text-sm font-semibold">
+                        <a href="{% url 'dashboard:index' %}" class="{% if request.resolver_match.view_name == 'dashboard:index' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400{% endif %} transition">Explore</a>
+                        <a href="{% url 'dashboard:deals' %}" class="{% if request.resolver_match.view_name == 'dashboard:deals' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400{% endif %} transition">Deals</a>
+                        <a href="{% url 'dashboard:watchlist' %}" class="{% if request.resolver_match.view_name == 'dashboard:watchlist' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400{% endif %} transition">Watchlist</a>
+                        <a href="{% url 'dashboard:alerts' %}" class="{% if request.resolver_match.view_name == 'dashboard:alerts' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400{% endif %} transition">Alerts</a>
+                    </nav>
+
+                    <div class="h-6 w-px bg-slate-200 dark:bg-slate-800"></div>
+
+                    <!-- Theme Switcher -->
+                    <button @click="$store.pricecomStore.toggleTheme()" 
+                            class="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                            title="Toggle dark/light mode">
+                        <i class="fas text-lg" :class="$store.pricecomStore.theme === 'light' ? 'fa-moon' : 'fa-sun'"></i>
+                    </button>
+
+                    <!-- User Dropdown Menu -->
+                    {% if user.is_authenticated %}
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" @click.away="open = false"
+                                class="flex items-center gap-2 hover:opacity-80 transition cursor-pointer select-none">
+                            <div class="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-xs uppercase border border-emerald-200 dark:border-emerald-800">
+                                {{ user.username|default:user.email|slice:":2" }}
+                            </div>
+                        </button>
+
+                        <div x-show="open" x-cloak x-transition.opacity
+                            class="absolute right-0 mt-3 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl overflow-hidden z-50">
+                            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Signed in as</p>
+                                <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{{ user.email }}</p>
+                            </div>
+                            <div class="py-1">
+                                <a href="{% url 'dashboard:alerts' %}" class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                                    <i class="fas fa-bell w-5 text-slate-400"></i> Alert Settings
+                                </a>
+                            </div>
+                            <div class="border-t border-slate-100 dark:border-slate-800 py-1">
+                                <a href="{% url 'logout' %}" class="block px-4 py-2 text-sm text-red-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                                    <i class="fas fa-sign-out-alt w-5"></i> Log out
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'login' %}" class="inline-flex items-center justify-center px-5 py-2 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-emerald-600 dark:hover:bg-emerald-500 font-bold text-sm shadow-sm transition">
+                        Sign In
+                    </a>
+                    {% endif %}
+                </div>
             </div>
-        </main>
+            
+            <!-- Mobile Search Bar (shows only on small screens) -->
+            <div class="md:hidden pb-3">
+                <div class="relative w-full flex items-center gap-2">
+                    <div class="relative flex-1">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-sm"></i>
+                        <input type="text" placeholder="Search products..."
+                               class="w-full bg-slate-100 dark:bg-slate-950 border border-transparent dark:border-slate-800 rounded-full py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white dark:focus:border-emerald-500 dark:focus:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-500"
+                               @keyup.enter="
+                                   const q = $el.value.trim();
+                                   if (q) {
+                                       window.location.href = '{% url 'dashboard:index' %}?q=' + encodeURIComponent(q);
+                                   }
+                               "
+                        >
+                    </div>
+                    <a href="{% url 'dashboard:visual_search' %}" class="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                        <i class="fas fa-camera"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow w-full">
+        <div class="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 mb-16 md:mb-0">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Mobile Bottom Tab Navigation -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 px-6 py-2 flex justify-between items-center shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)] pb-safe">
+        <a href="{% url 'dashboard:index' %}" class="flex flex-col items-center gap-1 p-2 {% if request.resolver_match.view_name == 'dashboard:index' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200{% endif %}">
+            <i class="fas fa-home text-xl"></i>
+            <span class="text-[10px] font-semibold">Home</span>
+        </a>
+        <a href="{% url 'dashboard:deals' %}" class="flex flex-col items-center gap-1 p-2 {% if request.resolver_match.view_name == 'dashboard:deals' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200{% endif %}">
+            <i class="fas fa-tags text-xl"></i>
+            <span class="text-[10px] font-semibold">Deals</span>
+        </a>
+        <a href="{% url 'dashboard:visual_search' %}" class="flex flex-col items-center gap-1 p-2 {% if request.resolver_match.view_name == 'dashboard:visual_search' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200{% endif %}">
+            <i class="fas fa-camera text-xl"></i>
+            <span class="text-[10px] font-semibold">Lens</span>
+        </a>
+        <a href="{% url 'dashboard:watchlist' %}" class="flex flex-col items-center gap-1 p-2 {% if request.resolver_match.view_name == 'dashboard:watchlist' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200{% endif %} relative">
+            <i class="fas fa-heart text-xl"></i>
+            <span class="text-[10px] font-semibold">Watchlist</span>
+            <span x-show="$store.pricecomStore.watchlistCount > 0" x-text="$store.pricecomStore.watchlistCount" x-cloak class="absolute top-1 right-2 w-3.5 h-3.5 bg-amber-500 text-white rounded-full flex items-center justify-center text-[8px] font-bold"></span>
+        </a>
+        {% if user.is_authenticated %}
+        <a href="{% url 'dashboard:alerts' %}" class="flex flex-col items-center gap-1 p-2 {% if request.resolver_match.view_name == 'dashboard:alerts' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200{% endif %}">
+            <i class="fas fa-user text-xl"></i>
+            <span class="text-[10px] font-semibold">Profile</span>
+        </a>
+        {% else %}
+        <a href="{% url 'login' %}" class="flex flex-col items-center gap-1 p-2 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200">
+            <i class="fas fa-sign-in-alt text-xl"></i>
+            <span class="text-[10px] font-semibold">Login</span>
+        </a>
+        {% endif %}
     </div>
 
     <!-- Alpine Global Store Initialization -->
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.store('pricecomStore', {
-                isSidebarOpen: false,
+                theme: localStorage.getItem('theme') || 'dark',
                 activeAlerts: {{ active_alerts|default:"0" }},
-                selectedProductId: null,
-                predictionSignal: '{{ prediction.signal|default:""|escapejs }}',
-                systemError: false,
                 watchlistCount: 0,
-                imageSearchState: {
-                    taskId: null,
-                    status: null,
-                    results: null,
-                    ocrText: null,
-                    error: null
+                toggleTheme() {
+                    this.theme = this.theme === 'dark' ? 'light' : 'dark';
+                    localStorage.setItem('theme', this.theme);
+                    if (this.theme === 'dark') {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
                 }
             });
 
-        Alpine.data('pricecomStore', () => ({
-            isSidebarOpen: false,
-            init() {
-                // Sync local state to store to let sidebar handle it if needed
-                this.$watch('$store.pricecomStore.isSidebarOpen', val => this.isSidebarOpen = val);
-                this.$watch('isSidebarOpen', val => this.$store.pricecomStore.isSidebarOpen = val);
+            // HTMX Error listener
+            window.addEventListener('htmx:responseError', () => {
+                const errBanner = document.getElementById('global-error');
+                if (errBanner) {
+                    errBanner.style.display = 'block';
+                    setTimeout(() => errBanner.style.display = 'none', 5000);
+                }
+            });
 
-                window.addEventListener('htmx:responseError', () => {
-                    this.$store.pricecomStore.systemError = true;
-                });
-            }
-        }));
-
-        // Watchlist update listener
-        window.addEventListener('update-watchlist-count', (e) => {
-            Alpine.store('pricecomStore').watchlistCount = e.detail;
-        });
+            // Watchlist update listener
+            window.addEventListener('update-watchlist-count', (e) => {
+                Alpine.store('pricecomStore').watchlistCount = e.detail;
+            });
         });
 
         // Custom HTMX configurations: attach Django CSRF token to non-GET requests
@@ -338,7 +310,6 @@
                 const cookies = document.cookie.split(';');
                 for (let i = 0; i < cookies.length; i++) {
                     const cookie = cookies[i].trim();
-                    // Does this cookie string begin with the name we want?
                     if (cookie.substring(0, name.length + 1) === (name + '=')) {
                         cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                         break;
@@ -349,169 +320,17 @@
         }
 
         document.body.addEventListener('htmx:configRequest', function (evt) {
-            // Prefer explicit csrf token field if present (forms), otherwise fall back to cookie
             var csrfInput = document.querySelector('input[name=csrfmiddlewaretoken]');
             var token = csrfInput ? csrfInput.value : getCookie('csrftoken');
             if (token && evt.detail.verb.toLowerCase() !== 'get') {
                 evt.detail.headers['X-CSRFToken'] = token;
             }
         });
-
-        // Image search polling: polls /dashboard/api/result/<task_id>/ until SUCCESS/FAILURE
-        window.startImagePoll = function (taskId) {
-            try {
-                const store = Alpine.store('pricecomStore');
-                store.imageSearchState = { taskId: taskId, status: 'PENDING', results: null, ocrText: store.imageSearchState.ocrText || null, error: null };
-                let attempts = 0;
-                const start = Date.now();
-                const maxTime = 120000; // 2 minutes
-
-                async function poll() {
-                    try {
-                        const resp = await fetch(`/dashboard/api/result/${taskId}/`, { method: 'GET', headers: { 'HX-Request': 'true' } });
-                        if (!resp.ok) { throw new Error('Network error'); }
-                        const data = await resp.json();
-                        store.imageSearchState.status = data.status || store.imageSearchState.status;
-
-                        if (data.status === 'SUCCESS') {
-                            store.imageSearchState.results = data.results || [];
-                            // update product table rows
-                            const tbody = document.getElementById('products-tbody');
-                            if (tbody) {
-                                tbody.innerHTML = '';
-                                (data.results || []).forEach(function (item) {
-                                    const tr = document.createElement('tr');
-                                    tr.className = 'hover:bg-[#0a111a] transition-none group cursor-pointer';
-                                    const name = (item.name || 'Result');
-                                    const storeName = (item.store || '—');
-                                    // Prices are pre-formatted from backend (e.g. "₹17,999")
-                                    const price = item.price || 'N/A';
-                                    const minv = item.min || item.min_price || price;
-                                    const delta = item.delta || '';
-                                    const url = item.url || '#';
-                                    tr.innerHTML = `
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center space-x-3">
-                                                <div>
-                                                    <p class="text-brand-textHighlight group-hover:text-brand-accent">${name}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-brand-textMuted">${storeName}</td>
-                                        <td class="px-4 py-3 tabular-nums text-brand-textMuted">${price}</td>
-                                        <td class="px-4 py-3 tabular-nums"><span class="font-bold text-brand-success">${minv}</span></td>
-                                        <td class="px-4 py-3"><span class="text-[10px] text-brand-textMuted bg-[#0D1117] px-1 border border-brand-border">${delta}</span></td>
-                                        <td class="px-4 py-3 text-right"><a href="${url}" target="_blank" class="bg-transparent text-brand-accent border border-brand-accent px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-brand-accent hover:text-[#080B0F] transition-none">VISIT</a></td>
-                                    `;
-                                    tbody.appendChild(tr);
-                                });
-                            }
-
-                            // update chart if provided
-                            if (window.ApexCharts && data.chart) {
-                                if (data.chart.series) { ApexCharts.exec('priceHistoryChart', 'updateSeries', data.chart.series); }
-                                if (data.chart.categories) { ApexCharts.exec('priceHistoryChart', 'updateOptions', { xaxis: { categories: data.chart.categories } }); }
-                            }
-
-                            // update product name in telemetry feed
-                            if (data.product_name) {
-                                const display = document.getElementById('current-product-display');
-                                if (display) display.innerText = '- ' + data.product_name;
-
-                                // Transition AI Shopper panel to SUCCESS state
-                                const statusH3 = document.getElementById('image-processing-status');
-                                if (statusH3) statusH3.innerText = data.product_name;
-                                
-                                const spinner = document.getElementById('image-processing-spinner');
-                                if (spinner) {
-                                    spinner.innerHTML = '<i class="fas fa-check-circle text-brand-success mr-2"></i><span>Identification and search complete.</span>';
-                                    spinner.classList.remove('text-brand-textMuted');
-                                    spinner.classList.add('text-brand-success');
-                                }
-                                
-                                const pollText = document.getElementById('image-polling-text');
-                                if (pollText) pollText.innerText = 'All results loaded into the matrix.';
-                            }
-
-                            // Restore the upload form so the user can search again
-                            const uploadPanel = document.getElementById('image-upload-panel');
-                            if (uploadPanel) {
-                                uploadPanel.innerHTML = `
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div>
-                                            <p class="text-xs uppercase text-brand-textMuted tracking-widest">AI Shopper</p>
-                                            <h3 class="text-brand-textHighlight font-semibold">${data.product_name || 'Search Complete'}</h3>
-                                        </div>
-                                        <div class="text-[10px] text-brand-success"><i class="fas fa-check-circle mr-1"></i>DONE</div>
-                                    </div>
-                                    <button
-                                        hx-get="/dashboard/api/image-search/form/"
-                                        hx-target="#image-upload-panel"
-                                        hx-swap="outerHTML"
-                                        class="w-full px-4 py-2 bg-brand-accent text-[#080B0F] font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-                                        <i class="fas fa-camera mr-1"></i> Search Another Product
-                                    </button>
-                                `;
-                                if (window.htmx) htmx.process(uploadPanel);
-                            }
-
-                            // Inject search panel html if available
-                            if (data.panel_html) {
-                                const searchRes = document.getElementById('search-results');
-                                if (searchRes) {
-                                    searchRes.innerHTML = data.panel_html;
-                                }
-                            }
-
-                            store.imageSearchState.status = 'SUCCESS';
-                            return;
-                        }
-
-                        if (data.status === 'FAILURE') {
-                            store.imageSearchState.error = data.error || 'Processing failed';
-                            store.imageSearchState.status = 'FAILURE';
-                            // Show error + re-upload button
-                            const uploadPanel = document.getElementById('image-upload-panel');
-                            if (uploadPanel) {
-                                uploadPanel.innerHTML = `
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div>
-                                            <p class="text-xs uppercase text-brand-textMuted tracking-widest">AI Shopper</p>
-                                            <h3 class="text-[#ff99b5] font-semibold">${data.error || 'Processing failed'}</h3>
-                                        </div>
-                                        <div class="text-[10px] text-[#ff3366]"><i class="fas fa-times-circle mr-1"></i>ERROR</div>
-                                    </div>
-                                    <button
-                                        hx-get="/dashboard/api/image-search/form/"
-                                        hx-target="#image-upload-panel"
-                                        hx-swap="outerHTML"
-                                        class="w-full px-4 py-2 bg-brand-accent text-[#080B0F] font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-                                        <i class="fas fa-redo mr-1"></i> Try Again
-                                    </button>
-                                `;
-                                if (window.htmx) htmx.process(uploadPanel);
-                            }
-                            return;
-                        }
-
-                    } catch (err) {
-                        console.error('image poll error', err);
-                    }
-
-                    attempts++;
-                    if (Date.now() - start > maxTime) {
-                        store.imageSearchState.error = 'Timed out waiting for results';
-                        store.imageSearchState.status = 'TIMEOUT';
-                        return;
-                    }
-                    const delay = attempts > 15 ? 5000 : 2000;
-                    setTimeout(poll, delay);
-                }
-
-                poll();
-            } catch (e) { console.error('startImagePoll error', e); }
-        }
+        
+        // Tailwind class polyfill for pb-safe (safe area padding bottom)
+        const style = document.createElement('style');
+        style.innerHTML = '.pb-safe { padding-bottom: env(safe-area-inset-bottom); }';
+        document.head.appendChild(style);
     </script>
 </body>
-
 </html>

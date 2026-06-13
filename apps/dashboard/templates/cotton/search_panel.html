@@ -1,47 +1,47 @@
-<div class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center py-20" 
+<div class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center pt-8 pb-10" 
      x-data="{ ocrResult: null }">
 
     <!-- Title / Branding -->
-    <div class="mb-12 text-center">
-        <h1 class="text-4xl md:text-6xl font-black text-[#e2e8f0] tracking-tighter uppercase mb-4"
-            style="font-family: 'Space Grotesk', sans-serif;">
-            PRICE<span class="text-[#00e5ff] drop-shadow-[0_0_15px_rgba(0,229,255,0.5)]">COM</span>_NEXUS
+    <div class="mb-8 text-center">
+        <h1 class="text-3xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight uppercase mb-2 font-heading">
+            Price<span class="text-indigo-600 dark:text-indigo-400">Com</span> Intelligence
         </h1>
-        <p class="text-[#64748b] font-mono tracking-widest uppercase text-sm">
-            [ <span class="text-[#00ff9d] animate-pulse">●</span> INTELLIGENCE_ROUTING_ACTIVE ]
+        <p class="text-slate-400 dark:text-zinc-500 font-medium tracking-wide text-xs">
+            Aggregated real-time pricing matrix for Amazon & Flipkart
         </p>
     </div>
 
     <!-- Search Bar Form with HTMX via POST -->
     <form hx-post="/dashboard/api/search/" hx-target="#search-results" hx-swap="innerHTML"
         hx-indicator="#search-spinner"
-        class="w-full relative flex items-center bg-[#080B0F] border border-[#1A1F28] shadow-[0_0_30px_rgba(0,229,255,0.05)] transition-all hover:border-[#00e5ff]/50 px-2 py-2">
+        class="w-full relative flex items-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm hover:shadow-md transition-all px-2.5 py-2.5">
 
         {% csrf_token %}
 
         <!-- Input -->
-        <div class="flex-1 flex items-center pl-4">
-            <span class="text-[#00e5ff] font-mono mr-4 animate-pulse">></span>
+        <div class="flex-1 flex items-center pl-3">
+            <i class="fas fa-search text-slate-400 dark:text-zinc-500 text-lg mr-3"></i>
             <input type="hidden" name="layout" value="panel">
-            <input type="text" name="q" placeholder="QUERY SKU, BRAND, OR URL_LINK..."
+            <input type="text" name="q" placeholder="Enter product name, model SKU, or retail URL..."
                 value="{{ persist_q|default:'' }}"
-                class="w-full bg-transparent border-none text-lg md:text-xl text-[#e2e8f0] font-mono placeholder-[#1A1F28] focus:outline-none focus:ring-0">
+                class="w-full bg-transparent border-none text-base text-slate-800 dark:text-zinc-100 font-semibold focus:outline-none focus:ring-0 placeholder-slate-400 dark:placeholder-zinc-600">
         </div>
 
-        <!-- OCR Upload Button -->
+        <!-- OCR Camera Upload Button -->
         <button type="button"
-            class="flex items-center justify-center h-12 w-12 border border-[#1A1F28] text-[#64748b] hover:text-[#00e5ff] hover:border-[#00e5ff] transition-none mx-2 group"
+            class="flex items-center justify-center h-10 w-10 border border-slate-100 dark:border-zinc-850 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition mx-1 group"
+            title="Scan product image"
             @click="$refs.ocrInput.click()">
-            <i x-ref="camIcon" class="fas fa-camera group-hover:drop-shadow-[0_0_8px_rgba(0,229,255,0.8)]"></i>
+            <i x-ref="camIcon" class="fas fa-camera text-base"></i>
         </button>
-        <input type="file" x-ref="ocrInput" class="hidden"
+        <input type="file" x-ref="ocrInput" class="hidden" accept="image/*"
             @change="(e) => { 
                 const f = e.target.files && e.target.files[0]; 
                 if (!f) return; 
                 
                 const icon = $refs.camIcon;
                 const oldClass = icon.className;
-                icon.className = 'fas fa-spinner fa-spin text-[#00e5ff] drop-shadow-[0_0_8px_rgba(0,229,255,0.8)]';
+                icon.className = 'fas fa-spinner fa-spin text-indigo-500';
                 
                 const fd = new FormData(); 
                 fd.append('image', f); 
@@ -72,40 +72,39 @@
                 .catch(err => { 
                     icon.className = oldClass;
                     console.error('OCR upload failed', err); 
-                    alert(err.error || 'Failed to identify image. Please try a different photo or check API limits.');
+                    alert(err.error || 'Failed to identify image. Please try a different photo.');
                 }); 
             }">
 
         <!-- Submit Button -->
         <button type="submit"
-            class="bg-[#00e5ff]/10 border border-[#00e5ff] text-[#00e5ff] font-mono font-bold tracking-widest px-8 hover:bg-[#00e5ff] hover:text-[#080B0F] transition-none h-12 shadow-[0_0_10px_rgba(0,229,255,0.2)]">
-            <span class="indicator-label">[ EXECUTE ]</span>
-            <span class="indicator-progress hidden whitespace-nowrap"><i class="fas fa-spinner fa-spin mr-2"></i></span>
+            class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold px-6 py-2.5 transition text-xs shadow-sm">
+            <span class="indicator-label">Compare</span>
+            <span class="indicator-progress hidden whitespace-nowrap"><i class="fas fa-spinner fa-spin"></i></span>
         </button>
     </form>
 
     <!-- Error/Loading indicators and dynamic container -->
-    <div id="search-spinner" class="htmx-indicator mt-8 text-[#00e5ff] font-mono text-sm uppercase tracking-widest">
-        <i class="fas fa-globe-americas fa-spin mr-2"></i> CONNECTING_TO_KNOWLEDGE_BASE...
+    <div id="search-spinner" class="htmx-indicator mt-6 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider animate-pulse flex items-center gap-2">
+        <i class="fas fa-circle-notch fa-spin"></i> Querying Marketplace Catalog...
     </div>
 
     <!-- Container for HTMX search results -->
-    <div id="search-results" class="w-full mt-8"></div>
+    <div id="search-results" class="w-full mt-6"></div>
 
     <!-- Quick Filters -->
-    <div
-        class="mt-12 flex flex-wrap justify-center gap-4 font-mono text-[10px] uppercase tracking-widest text-[#64748b]">
-        <span class="hover:text-[#e2e8f0] cursor-pointer"
-            @click="document.querySelector('input[name=q]').value = 'ELECTRONICS'; $el.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))">/ELECTRONICS</span>
-        <span class="text-[#1A1F28]">//</span>
-        <span class="hover:text-[#e2e8f0] cursor-pointer"
-            @click="document.querySelector('input[name=q]').value = 'APPAREL'; $el.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))">/APPAREL</span>
-        <span class="text-[#1A1F28]">//</span>
-        <span class="hover:text-[#e2e8f0] cursor-pointer"
-            @click="document.querySelector('input[name=q]').value = 'HOME GOODS'; $el.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))">/HOME_GOODS</span>
-        <span class="text-[#1A1F28]">//</span>
-        <span class="text-[#ffb000] hover:text-[#ffb000] cursor-pointer"
-            @click="document.querySelector('input[name=q]').value = 'FLASH SALES TODAY'; $el.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))">/FLASH_SALES</span>
+    <div class="mt-6 flex flex-wrap justify-center gap-2.5 text-xs text-slate-500 dark:text-zinc-400 font-semibold select-none">
+        <span class="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer transition"
+            @click="document.querySelector('input[name=q]').value = 'Electronics'; $el.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))">Electronics</span>
+        
+        <span class="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer transition"
+            @click="document.querySelector('input[name=q]').value = 'Apparel'; $el.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))">Apparel</span>
+        
+        <span class="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer transition"
+            @click="document.querySelector('input[name=q]').value = 'Home Goods'; $el.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))">Home Goods</span>
+        
+        <span class="px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100/50 cursor-pointer transition"
+            @click="document.querySelector('input[name=q]').value = 'Flash Sales Today'; $el.closest('div').previousElementSibling.previousElementSibling.previousElementSibling.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))">Flash Sales</span>
     </div>
 </div>
 

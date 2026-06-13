@@ -1,52 +1,56 @@
-<div class="w-full border border-brand-border bg-[#05070c] px-5 py-4 space-y-6">
+<div class="w-full border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm space-y-6 theme-transition">
     <!-- Product Header Section -->
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div class="flex items-start gap-4">
-            <!-- Placeholder image block (extend later when image URLs are available) -->
-            <div class="h-20 w-20 rounded-lg bg-[#0b0f18] border border-brand-border flex items-center justify-center text-xs uppercase tracking-wide text-brand-textMuted">
-                {{ product.brand_name|default:"PRC" }}
+            <!-- Thumbnail block -->
+            <div class="h-16 w-16 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-xs uppercase font-bold text-slate-400 dark:text-zinc-500 p-1 flex-shrink-0">
+                {% if product.prices.first.image_url %}
+                <img src="{{ product.prices.first.image_url }}" alt="" class="max-h-full max-w-full object-contain">
+                {% else %}
+                {{ product.brand_name|default:"PRC"|slice:":3" }}
+                {% endif %}
             </div>
             <div class="space-y-1">
-                <h2 class="text-sm md:text-base font-semibold text-brand-textHighlight">
+                <h2 class="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
                     {{ product.name }}
                 </h2>
-                <p class="text-[11px] text-brand-textMuted">
-                    <span class="uppercase tracking-widest text-brand-accent/80">{{ product.brand_name|default:"GENERIC" }}</span>
+                <p class="text-xs text-slate-400 dark:text-zinc-500 font-semibold">
+                    <span class="uppercase tracking-wider text-indigo-600 dark:text-indigo-400">{{ product.brand_name|default:"GENERIC" }}</span>
                     {% if product.category %}
-                        <span class="mx-1 text-brand-textMuted/40">•</span>
-                        <span class="text-brand-textMuted/80">{{ product.category.name }}</span>
+                        <span class="mx-1.5 text-slate-300 dark:text-zinc-700">•</span>
+                        <span>{{ product.category.name }}</span>
                     {% endif %}
                 </p>
-                <p class="text-[11px] text-brand-textMuted/70">
-                    Tracking across
-                    <span class="text-brand-textHighlight font-medium">{{ num_stores|default:"0" }}</span>
-                    stores · Trend:
-                    <span class="font-semibold {% if trend_label == 'UP' %}text-red-400{% elif trend_label == 'DOWN' %}text-emerald-400{% else %}text-brand-textMuted{% endif %}">
-                        {% if trend_label == 'UP' %}Up{% elif trend_label == 'DOWN' %}Down{% else %}Stable{% endif %}
+                <p class="text-[11px] text-slate-400 dark:text-zinc-500">
+                    Sellers matching:
+                    <span class="text-slate-800 dark:text-zinc-300 font-bold">{{ num_stores|default:"0" }}</span>
+                    · Momentum:
+                    <span class="font-bold {% if trend_label == 'UP' %}text-red-600 dark:text-red-400{% elif trend_label == 'DOWN' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-500 dark:text-zinc-400{% endif %}">
+                        {% if trend_label == 'UP' %}Upward{% elif trend_label == 'DOWN' %}Downward{% else %}Stable{% endif %}
                     </span>
                 </p>
             </div>
         </div>
 
         <!-- Quick Actions -->
-        <div class="flex flex-wrap gap-2 justify-start lg:justify-end">
+        <div class="flex flex-wrap gap-2.5 justify-start lg:justify-end">
             <!-- Watchlist toggle -->
             <div id="watchlist-toggle-{{ product.id }}">
                 {% if is_watchlisted %}
                     <button
-                        class="magnetic-btn rounded-xl bg-gray-800/50 border border-electricCyan text-electricCyan px-4 py-2 text-[11px] font-bold tracking-widest shadow-[0_0_15px_rgba(0,243,255,0.4)]"
+                        class="rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-900/10 dark:hover:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-4 py-2 text-xs font-bold transition"
                         hx-post="/scraper/watchlist/toggle/"
                         hx-vals='{"product_id": "{{ product.id }}"}'
                         hx-swap="outerHTML">
-                        <i class="fas fa-heart mr-2 animate-pulse"></i> WATCHING
+                        <i class="fas fa-heart mr-1.5 text-indigo-500"></i> Watching
                     </button>
                 {% else %}
                     <button
-                        class="magnetic-btn rounded-xl bg-gray-800/50 border border-gray-700 text-gray-300 px-4 py-2 text-[11px] font-bold tracking-widest hover:bg-neonPurple hover:border-neonPurple hover:text-white transition-all duration-300"
+                        class="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 px-4 py-2 text-xs font-bold transition"
                         hx-post="/scraper/watchlist/toggle/"
                         hx-vals='{"product_id": "{{ product.id }}"}'
                         hx-swap="outerHTML">
-                        <i class="far fa-heart mr-2"></i> WATCH
+                        <i class="far fa-heart mr-1.5"></i> Watch
                     </button>
                 {% endif %}
             </div>
@@ -54,19 +58,19 @@
             <button
                 type="button"
                 onclick="event.preventDefault(); event.stopPropagation(); window.priceAlertModal && window.priceAlertModal.open('{{ product.id }}');"
-                class="rounded-xl border border-brand-border/70 bg-[#0b0f18] px-4 py-2 text-[11px] font-semibold tracking-widest text-brand-textMuted hover:border-brand-accent hover:text-brand-accent transition-none inline-flex items-center">
+                class="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 px-4 py-2 text-xs font-bold transition">
                 Set Price Alert
             </button>
 
-            <!-- View Product (default to cheapest store) -->
+            <!-- Buy Now (cheapest url redirect) -->
             {% with cheapest=stores|first %}
                 {% if cheapest and cheapest.product_url %}
                     <a
                         href="{{ cheapest.product_url }}"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center rounded-xl bg-brand-accent text-[#05070c] px-4 py-2 text-[11px] font-semibold tracking-widest hover:bg-brand-accent/90 transition-none">
-                        View Product
+                        class="inline-flex items-center rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold shadow-sm transition">
+                        Shop Best Price
                     </a>
                 {% endif %}
             {% endwith %}
@@ -74,110 +78,88 @@
     </div>
 
     <!-- Metrics strip -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
-        <div class="px-3 py-2 rounded-lg bg-[#080e17] border border-brand-border/70">
-            <p class="text-brand-textMuted/70">Current Lowest</p>
-            <p class="mt-1 text-sm font-semibold text-brand-textHighlight">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        <div class="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-150 dark:border-zinc-850">
+            <p class="text-slate-400 dark:text-zinc-500 font-semibold">Current Lowest</p>
+            <p class="mt-1 text-base font-extrabold text-slate-900 dark:text-white font-mono">
                 {{ current_lowest_price_display }}
             </p>
         </div>
-        <div class="px-3 py-2 rounded-lg bg-[#080e17] border border-brand-border/70">
-            <p class="text-brand-textMuted/70">Lowest Recorded</p>
-            <p class="mt-1 text-sm font-semibold text-emerald-400">
+        <div class="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-150 dark:border-zinc-850">
+            <p class="text-slate-400 dark:text-zinc-500 font-semibold">Lowest Recorded</p>
+            <p class="mt-1 text-base font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
                 {{ insights.lowest_price_display }}
             </p>
         </div>
-        <div class="px-3 py-2 rounded-lg bg-[#080e17] border border-brand-border/70">
-            <p class="text-brand-textMuted/70">Average Price</p>
-            <p class="mt-1 text-sm font-semibold text-brand-textHighlight">
+        <div class="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-150 dark:border-zinc-850">
+            <p class="text-slate-400 dark:text-zinc-500 font-semibold">Average Price</p>
+            <p class="mt-1 text-base font-extrabold text-slate-800 dark:text-zinc-200 font-mono">
                 {{ insights.avg_price_display }}
             </p>
         </div>
-        <div class="px-3 py-2 rounded-lg bg-[#080e17] border border-brand-border/70">
-            <p class="text-brand-textMuted/70">Price Change</p>
-            <p class="mt-1 text-sm font-semibold {% if insights.trend_label == 'UP' %}text-red-400{% elif insights.trend_label == 'DOWN' %}text-emerald-400{% else %}text-brand-textHighlight{% endif %}">
+        <div class="px-4 py-3 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-150 dark:border-zinc-850">
+            <p class="text-slate-400 dark:text-zinc-500 font-semibold">Price Velocity</p>
+            <p class="mt-1 text-base font-extrabold font-mono {% if insights.trend_label == 'UP' %}text-red-600 dark:text-red-400{% elif insights.trend_label == 'DOWN' %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-850 dark:text-zinc-150{% endif %}">
                 {{ insights.change_pct_display }}
             </p>
         </div>
     </div>
 
-    <!-- Main body: Price Comparison + Chart + Insights -->
-    <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
-        <!-- Price Comparison Table -->
+    <!-- Details split block -->
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <!-- Store Prices Table -->
         <div class="xl:col-span-3 space-y-3">
-            <div class="flex items-center justify-between">
-                <h3 class="text-[12px] font-semibold uppercase tracking-[0.2em] text-brand-textMuted">
-                    Price Comparison
-                </h3>
-            </div>
-            <div class="overflow-x-auto rounded-lg border border-brand-border/70 bg-[#05070c]">
-                <table class="min-w-full divide-y divide-brand-border/60 text-[11px]">
-                    <thead class="bg-[#05070c] text-brand-textMuted/80">
-                        <tr>
-                            <th class="px-3 py-2 text-left font-normal">Store</th>
-                            <th class="px-3 py-2 text-right font-normal">Current Price</th>
-                            <th class="px-3 py-2 text-center font-normal">Availability</th>
-                            <th class="px-3 py-2 text-center font-normal">Last Updated</th>
-                            <th class="px-3 py-2 text-right font-normal">Link</th>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                Offers Matrix
+            </h3>
+            <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                <table class="min-w-full divide-y divide-slate-200 dark:divide-zinc-800 text-xs">
+                    <thead class="bg-slate-50 dark:bg-zinc-950 text-slate-400 dark:text-zinc-500">
+                        <tr class="font-semibold">
+                            <th class="px-4 py-2.5 text-left">Store</th>
+                            <th class="px-4 py-2.5 text-right">Price</th>
+                            <th class="px-4 py-2.5 text-center">Availability</th>
+                            <th class="px-4 py-2.5 text-right">Action</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-brand-border/60">
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800/60 text-slate-700 dark:text-zinc-300">
                         {% for store in stores %}
-                            <tr class="hover:bg-[#070c14]">
-                                <td class="px-3 py-2">
-                                    <div class="flex items-center gap-2">
-                                        <div class="h-6 w-6 rounded-full bg-[#0b0f18] border border-brand-border/80 flex items-center justify-center text-[9px] uppercase text-brand-textMuted">
-                                            {{ store.name|slice:":2" }}
-                                        </div>
-                                        <span class="text-brand-textHighlight text-[11px]">{{ store.name }}</span>
-                                    </div>
+                            <tr class="hover:bg-slate-50/50 dark:hover:bg-zinc-900/20 transition-colors">
+                                <td class="px-4 py-2.5 font-bold uppercase text-[10px]">
+                                    {% if store.name == 'Amazon' %}<i class="fab fa-amazon text-amber-500 mr-1"></i>{% elif store.name == 'Flipkart' %}<i class="fas fa-shopping-bag text-blue-500 mr-1"></i>{% endif %}
+                                    {{ store.name }}
                                 </td>
-                                <td class="px-3 py-2 text-right text-[11px]">
+                                <td class="px-4 py-2.5 text-right font-semibold font-mono">
                                     {% if forloop.first %}
-                                        <span class="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/40 px-2 py-0.5 text-emerald-300 font-semibold">
+                                        <span class="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 font-bold">
                                             {{ store.price_display }}
-                                            <span class="ml-1 text-[9px] uppercase tracking-wide">Best</span>
                                         </span>
                                     {% else %}
-                                        <span class="text-brand-textMuted">{{ store.price_display }}</span>
+                                        <span>{{ store.price_display }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-3 py-2 text-center">
-                                    {% if store.available %}
-                                        <span class="inline-flex items-center rounded-full bg-emerald-500/10 text-emerald-300 px-2 py-0.5 text-[10px]">
-                                            In Stock
-                                        </span>
-                                    {% else %}
-                                        <span class="inline-flex items-center rounded-full bg-red-500/10 text-red-300 px-2 py-0.5 text-[10px]">
-                                            Out of Stock
-                                        </span>
-                                    {% endif %}
+                                <td class="px-4 py-2.5 text-center">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
+                                        {% if store.available %}bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400
+                                        {% else %}bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400{% endif %}">
+                                        {{ store.availability_label }}
+                                    </span>
                                 </td>
-                                <td class="px-3 py-2 text-center text-[10px] text-brand-textMuted/80">
-                                    {% if store.last_updated %}
-                                        {{ store.last_updated|date:"d M, H:i" }}
-                                    {% else %}
-                                        —
-                                    {% endif %}
-                                </td>
-                                <td class="px-3 py-2 text-right">
+                                <td class="px-4 py-2.5 text-right">
                                     {% if store.product_url %}
-                                        <a
-                                            href="{{ store.product_url }}"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="inline-flex items-center rounded-full border border-brand-border/80 px-3 py-1 text-[10px] uppercase tracking-widest text-brand-textMuted hover:border-brand-accent hover:text-brand-accent transition-none">
-                                            View
+                                        <a href="{{ store.product_url }}" target="_blank" rel="noopener noreferrer"
+                                           class="inline-flex items-center justify-center border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-lg px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-zinc-300 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition">
+                                            Shop
                                         </a>
                                     {% else %}
-                                        <span class="text-[10px] text-brand-textMuted/50">N/A</span>
+                                        <span class="text-slate-400">N/A</span>
                                     {% endif %}
                                 </td>
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="5" class="px-3 py-4 text-center text-[11px] text-brand-textMuted">
-                                    No store prices available yet for this product.
+                                <td colspan="4" class="px-4 py-4 text-center text-slate-400">
+                                    No sellers offer matches detected.
                                 </td>
                             </tr>
                         {% endfor %}
@@ -186,113 +168,61 @@
             </div>
         </div>
 
-        <!-- Chart + Insights -->
-        <div class="xl:col-span-2 space-y-4">
-            <!-- Price Trend Chart -->
-            <div class="rounded-lg border border-brand-border/70 bg-[#05070c] p-3">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-[12px] font-semibold uppercase tracking-[0.2em] text-brand-textMuted">
-                        Price Trend Over Time
-                    </h3>
-                </div>
-                <div class="h-48">
+        <!-- Trend Line Chart -->
+        <div class="xl:col-span-2 space-y-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                Price Velocity
+            </h3>
+            <div class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4">
+                <div class="h-44">
                     <canvas id="product-price-chart-{{ product.id }}"></canvas>
-                </div>
-            </div>
-
-            <!-- Insights Panel -->
-            <div class="rounded-lg border border-brand-border/70 bg-[#05070c] p-3 space-y-2 text-[11px]">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-textMuted">
-                        Insights
-                    </h3>
-                    <span class="text-[10px] text-brand-textMuted/70">
-                        Alerts active: {{ insights.active_alerts_count }}
-                    </span>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <p class="text-brand-textMuted/70">Lowest Ever</p>
-                        <p class="mt-1 text-sm font-semibold text-emerald-400">
-                            {{ insights.lowest_price_display }}
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-brand-textMuted/70">Highest</p>
-                        <p class="mt-1 text-sm font-semibold text-red-400">
-                            {{ insights.highest_price_display }}
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-brand-textMuted/70">Average</p>
-                        <p class="mt-1 text-sm font-semibold text-brand-textHighlight">
-                            {{ insights.avg_price_display }}
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-brand-textMuted/70">Trend</p>
-                        <p class="mt-1 text-sm font-semibold {% if insights.trend_label == 'UP' %}text-red-400{% elif insights.trend_label == 'DOWN' %}text-emerald-400{% else %}text-brand-textHighlight{% endif %}">
-                            {{ insights.change_pct_display }}
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="price-alert-modal-{{ product.id }}" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-[1px] px-4" onclick="window.priceAlertModal && window.priceAlertModal.close('{{ product.id }}');">
-        <div class="mx-auto mt-[10vh] w-full max-w-md rounded-2xl border border-brand-border bg-[#0B0E16] p-5 shadow-[0_0_24px_rgba(0,0,0,0.45)]" onclick="event.stopPropagation();">
-            <div class="mb-4 flex items-start justify-between">
+    <!-- Alert Modal popup inside panel -->
+    <div id="price-alert-modal-{{ product.id }}" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" onclick="window.priceAlertModal && window.priceAlertModal.close('{{ product.id }}');">
+        <div class="w-full max-w-md rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl relative" onclick="event.stopPropagation();">
+            <div class="mb-4 flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-3 mb-6">
                 <div>
-                    <h3 class="text-lg font-semibold text-white">Set Alert Price Range</h3>
-                    <p class="text-xs text-brand-textMuted mt-1">You will be notified when this product drops below your max alert price.</p>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Configure Price Alert</h3>
+                    <p class="text-xs text-slate-400 dark:text-zinc-500 mt-1">Get an email alert when this SKU falls below target price.</p>
                 </div>
-                <button type="button" class="text-brand-textMuted hover:text-white" onclick="window.priceAlertModal && window.priceAlertModal.close('{{ product.id }}');">✕</button>
+                <button type="button" class="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 text-base" onclick="window.priceAlertModal && window.priceAlertModal.close('{{ product.id }}'); font-bold">✕</button>
             </div>
 
-            <form method="post" action="{% url 'dashboard:set_price_alert_from_product' %}" class="space-y-4">
+            <form method="post" action="{% url 'dashboard:set_price_alert_from_product' %}" class="space-y-6">
                 {% csrf_token %}
                 <input type="hidden" name="product_id" value="{{ product.id }}">
 
-                <div>
-                    <label for="min-price-{{ product.id }}" class="block text-[11px] uppercase tracking-[0.2em] text-brand-textMuted mb-1">Min Price (Optional)</label>
-                    <input
-                        id="min-price-{{ product.id }}"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        name="min_price"
-                        placeholder="e.g. 50000"
-                        class="w-full rounded-xl border border-brand-border bg-[#05070c] px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-accent"
-                    >
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">Alert Target Price</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            required
+                            name="target_price"
+                            value="{{ product.current_lowest_price|default_if_none:'' }}"
+                            class="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-slate-900 dark:text-zinc-100 font-bold text-lg focus:outline-none focus:border-indigo-500"
+                        >
+                    </div>
+                    <p class="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">Current best: {{ current_lowest_price_display }}</p>
                 </div>
 
-                <div>
-                    <label for="target-price-{{ product.id }}" class="block text-[11px] uppercase tracking-[0.2em] text-brand-textMuted mb-1">Max Alert Price</label>
-                    <input
-                        id="target-price-{{ product.id }}"
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        required
-                        name="target_price"
-                        value="{{ product.current_lowest_price|default_if_none:'' }}"
-                        placeholder="e.g. 54999"
-                        class="w-full rounded-xl border border-brand-border bg-[#05070c] px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-accent"
-                    >
-                    <p class="mt-1 text-[11px] text-brand-textMuted">Current lowest: {{ current_lowest_price_display }}</p>
-                </div>
-
-                <div class="flex items-center justify-end gap-2 pt-1">
+                <div class="flex gap-3 pt-3">
                     <button
                         type="button"
                         onclick="window.priceAlertModal && window.priceAlertModal.close('{{ product.id }}');"
-                        class="rounded-xl border border-brand-border px-4 py-2 text-xs uppercase tracking-[0.2em] text-brand-textMuted hover:text-white hover:border-brand-textMuted">
+                        class="flex-1 px-4 py-2.5 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 text-xs font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition">
                         Cancel
                     </button>
                     <button
                         type="submit"
-                        class="rounded-xl bg-brand-accent px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#05070c] font-semibold hover:bg-brand-accent/90">
+                        class="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition">
                         Save Alert
                     </button>
                 </div>
@@ -300,7 +230,7 @@
         </div>
     </div>
 
-    <!-- Inline script to bootstrap Chart.js using existing history payload -->
+    <!-- Bootstrapping Script -->
     <script>
         (function() {
             if (!window.priceAlertModal) {
@@ -349,16 +279,22 @@
                     return;
                 }
 
+                // Check if light or dark theme to render line grids beautifully
+                const isDark = document.documentElement.classList.contains('dark');
+                const gridColor = isDark ? '#27272a' : '#e2e8f0';
+                const labelColor = isDark ? '#71717a' : '#64748b';
+
                 const datasets = (payload.series || []).map(function(s, idx) {
-                    const baseColor = ['#22c55e', '#3b82f6', '#eab308', '#f97316'][idx % 4];
+                    const baseColor = ['#6366f1', '#ec4899', '#10b981', '#f59e0b'][idx % 4];
                     return {
                         label: s.name,
                         data: s.data,
                         borderColor: baseColor,
-                        backgroundColor: baseColor + '33',
+                        backgroundColor: baseColor + '1A', // opacity 10%
                         tension: 0.25,
                         pointRadius: 0,
-                        borderWidth: 1.5,
+                        borderWidth: 2,
+                        fill: true
                     };
                 });
 
@@ -373,31 +309,39 @@
                     scales: {
                         x: {
                             ticks: {
-                                color: '#7d8590',
+                                color: labelColor,
                                 maxRotation: 0,
                                 autoSkip: true,
+                                font: { size: 9 }
                             },
                             grid: {
-                                color: '#111827',
+                                color: gridColor,
+                                drawBorder: false
                             },
                         },
                         y: {
                             ticks: {
-                                color: '#7d8590',
+                                color: labelColor,
+                                font: { size: 9 },
                                 callback: function(value) {
                                     return '₹' + value;
                                 },
                             },
                             grid: {
-                                color: '#111827',
+                                color: gridColor,
+                                drawBorder: false
                             },
                         },
                     },
                     plugins: {
                         legend: {
+                            position: 'bottom',
                             labels: {
-                                color: '#9ca3af',
-                                font: { size: 10 },
+                                color: labelColor,
+                                font: { size: 9, weight: 'bold' },
+                                boxWidth: 6,
+                                boxHeight: 6,
+                                padding: 10
                             },
                         },
                         tooltip: {
@@ -411,7 +355,6 @@
                     },
                 };
 
-                // Destroy existing chart instance if we re-render for a different product
                 if (ctx._pricecomChart) {
                     ctx._pricecomChart.destroy();
                 }
@@ -424,4 +367,3 @@
         })();
     </script>
 </div>
-

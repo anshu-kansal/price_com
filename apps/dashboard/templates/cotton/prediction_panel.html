@@ -1,59 +1,62 @@
-<div
-    class="terminal-panel p-5 flex flex-col relative border-l-2 border-l-brand-danger shadow-[-2px_0_10px_rgba(255,51,102,0.2)]">
-    <div
-        class="text-[10px] font-mono text-brand-textMuted tracking-widest uppercase mb-4 border-b border-brand-border pb-2">
-        // AI_PREDICTION_ENGINE
+<div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 shadow-sm space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-100 dark:border-zinc-850 pb-2 text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-heading">
+        <span class="flex items-center gap-1.5"><i class="fas fa-brain text-indigo-500"></i> AI Prediction Engine</span>
     </div>
 
-    <div class="flex items-end justify-between mb-4">
+    <div class="flex items-baseline justify-between mt-2">
         <div>
-            <div class="text-3xl font-bold font-mono text-brand-danger tracking-tighter tabular-nums leading-none">
-                {{ prediction.signal|default:"WAIT 3 DAYS" }}
+            <div class="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-heading">
+                {{ prediction.signal|default:"TRACK CLOSELY" }}
             </div>
-            <div class="text-xs font-mono text-brand-amber mt-2 uppercase tracking-wide">
-                [ {{ prediction.confidence|default:72 }}% CONFIDENCE_LVL ]
+            <div class="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mt-1">
+                Confidence Level: {{ prediction.confidence|default:72 }}%
             </div>
         </div>
     </div>
 
-    <div class="mt-4 border border-brand-border bg-[#0a0d14] p-3 text-[10px] font-mono">
-        <div class="text-brand-textHighlight mb-2 uppercase border-b border-brand-border pb-1">Signals_Detected:</div>
-        <ul class="space-y-2 text-brand-textMuted">
+    <!-- Detected Signals Table -->
+    <div class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-3 text-xs">
+        <div class="text-slate-800 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-800 pb-1.5 mb-2">Signals Detected:</div>
+        <ul class="space-y-1.5 text-slate-500 dark:text-zinc-400">
             {% with signal_list=prediction.signals %}
                 {% if signal_list %}
                     {% for sig in signal_list %}
                     <li class="flex items-start">
-                        <span class="text-brand-accent mr-2">></span> {{ sig }}
+                        <i class="fas fa-circle-check text-indigo-500 mr-2 mt-0.5 text-[10px]"></i>
+                        <span>{{ sig }}</span>
                     </li>
                     {% endfor %}
                 {% else %}
                     <li class="flex items-start">
-                        <span class="text-brand-accent mr-2">></span> Awaiting intelligence feed
+                        <i class="fas fa-info-circle text-slate-400 mr-2 mt-0.5 text-[10px]"></i>
+                        <span>Awaiting pricing updates...</span>
                     </li>
                 {% endif %}
             {% endwith %}
         </ul>
     </div>
 
-    <div class="grid grid-cols-2 gap-2 mt-4 font-mono text-[10px] uppercase tracking-widest">
-        <div class="border border-brand-border p-3 text-brand-textMuted">
-            <div class="text-brand-textHighlight text-xl tabular-nums">{{ prediction.drop_probability|default:68 }}%</div>
-            <p class="mt-1 text-[9px]">DROP_PROB</p>
+    <!-- Probability & Index Cards -->
+    <div class="grid grid-cols-2 gap-3 mt-4 text-xs font-semibold">
+        <div class="rounded-2xl border border-slate-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-900 shadow-sm text-center">
+            <div class="text-slate-900 dark:text-zinc-100 text-lg font-black font-mono">{{ prediction.drop_probability|default:68 }}%</div>
+            <p class="text-[9px] text-slate-400 dark:text-zinc-500 uppercase mt-0.5">Drop Probability</p>
         </div>
-        <div class="border border-brand-border p-3 text-brand-textMuted">
-            <div class="text-brand-textHighlight text-xl tabular-nums">{{ prediction.smart_index|default:72 }}</div>
-            <p class="mt-1 text-[9px]">SMART_BUY_INDEX</p>
+        <div class="rounded-2xl border border-slate-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-900 shadow-sm text-center">
+            <div class="text-slate-900 dark:text-zinc-100 text-lg font-black font-mono">{{ prediction.smart_index|default:72 }}</div>
+            <p class="text-[9px] text-slate-400 dark:text-zinc-500 uppercase mt-0.5">Smart Index</p>
         </div>
     </div>
 
+    <!-- DIP Alert Activation -->
     <button
         hx-post="/dashboard/api/activate-dip-alert/"
         hx-target="this"
         hx-swap="outerHTML"
-        class="w-full mt-6 py-2 border border-brand-danger bg-brand-danger/10 text-brand-danger font-mono text-xs uppercase tracking-widest hover:bg-brand-danger hover:text-white transition-none disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden">
-        <span class="htmx-indicator absolute inset-0 bg-[#080B0F] flex items-center justify-center text-brand-success z-10 w-full h-full">
-            <i class="fas fa-circle-notch fa-spin mr-2"></i> ACTIVATING...
+        class="w-full inline-flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800/80 hover:bg-indigo-600 dark:hover:bg-indigo-500 hover:text-white text-indigo-600 dark:text-indigo-400 px-4 py-2 text-xs font-bold rounded-xl transition shadow-sm relative group overflow-hidden">
+        <span class="htmx-indicator absolute inset-0 bg-indigo-600 text-white flex items-center justify-center z-10 w-full h-full">
+            <i class="fas fa-spinner fa-spin mr-1.5"></i> Activating...
         </span>
-        <span class="relative z-0">ACTIVATE_DIP_ALERT</span>
+        <span class="relative z-0">Activate Dip Alert</span>
     </button>
 </div>

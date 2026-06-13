@@ -1,65 +1,96 @@
 {% extends 'dashboard/dashboard_base.html' %}
-{% block title %}Watchlist Alerts{% endblock %}
+{% block title %}Alerts Center | PriceCom{% endblock %}
 
 {% block content %}
-<div class="px-6 py-8 md:px-12 max-w-6xl mx-auto space-y-6">
-    <header class="flex flex-col gap-2">
-        <h1 class="text-3xl font-bold text-white tracking-tight">Alerts Center</h1>
-        <p class="text-sm text-brand-textMuted max-w-2xl">Manage your active alert targets and review notification history.</p>
+<div class="space-y-8 max-w-5xl mx-auto">
+    
+    <!-- Alerts Header -->
+    <header class="border-b border-slate-200 dark:border-zinc-800 pb-5">
+        <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Alerts Center</h1>
+        <p class="text-xs text-slate-400 dark:text-zinc-500 mt-1">Manage active price targets, notification rules, and log metrics</p>
     </header>
 
-    <section class="space-y-3">
-        <h2 class="text-sm uppercase tracking-[0.3em] text-brand-textMuted">Active Alerts</h2>
+    <!-- Section 1: Active Alert Thresholds -->
+    <section class="space-y-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Active Alert Configs</h2>
+        
         {% if active_alerts %}
-            <div class="space-y-3">
+            <div class="grid gap-4 sm:grid-cols-2">
                 {% for item in active_alerts %}
-                    <article class="rounded-2xl border border-brand-border bg-[#0B0E16] p-5 shadow-[0_0_12px_rgba(0,0,0,0.3)]">
-                        <div class="flex items-center justify-between text-[10px] uppercase tracking-[0.35em] text-brand-textMuted">
-                            <span>{{ item.created_at|date:"M d, Y H:i" }}</span>
-                            <span class="text-brand-accent">Configured</span>
+                    <article class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-500 font-semibold uppercase">
+                            <span>Configured {{ item.created_at|date:"d M Y" }}</span>
+                            <span class="text-indigo-600 dark:text-indigo-400">Surveillance Active</span>
                         </div>
-                        <div class="mt-3 grid gap-2 text-sm text-white md:grid-cols-3">
-                            <p><span class="text-brand-textMuted">Product:</span> {{ item.product.name }}</p>
-                            <p><span class="text-brand-textMuted">Alert Below:</span> ₹{{ item.target_price }}</p>
-                            <p><span class="text-brand-textMuted">Current:</span> {% if item.product.current_lowest_price %}₹{{ item.product.current_lowest_price }}{% else %}N/A{% endif %}</p>
+                        <div class="mt-4 space-y-2 text-xs">
+                            <h4 class="font-bold text-slate-900 dark:text-white leading-tight truncate">{{ item.product.name }}</h4>
+                            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800/60 text-[11px]">
+                                <div>
+                                    <span class="text-slate-400 dark:text-zinc-500 block">Alert Below</span>
+                                    <span class="font-bold font-mono text-slate-800 dark:text-zinc-200">₹{{ item.target_price }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 dark:text-zinc-500 block">Current Best</span>
+                                    <span class="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                                        {% if item.product.current_lowest_price %}₹{{ item.product.current_lowest_price }}{% else %}N/A{% endif %}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="mt-3">
-                            <a href="{% url 'dashboard:watchlist' %}" class="text-xs uppercase tracking-[0.2em] text-brand-accent hover:text-brand-textHighlight">Manage in Watchlist</a>
+                        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/60 flex items-center justify-between">
+                            <a href="{% url 'dashboard:watchlist' %}" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Edit Trigger</a>
+                            <a href="{% url 'dashboard:product_detail' item.product.id %}" class="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-zinc-300">View SKU details</a>
                         </div>
                     </article>
                 {% endfor %}
             </div>
         {% else %}
-            <div class="rounded-2xl border border-brand-border bg-[#0B0E16] p-6 text-sm text-brand-textMuted">
-                No active alerts configured yet. Open a product details panel and use Set Price Alert.
+            <div class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 text-center text-xs text-slate-400 dark:text-zinc-500 shadow-sm">
+                No active threshold alerts. Configure surveillance triggers on product details.
             </div>
         {% endif %}
     </section>
 
-    <section class="space-y-3">
-        <h2 class="text-sm uppercase tracking-[0.3em] text-brand-textMuted">Notification History</h2>
+    <!-- Section 2: Dispatch History Logs -->
+    <section class="space-y-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Notification Logs</h2>
+        
         {% if logs %}
-        <div class="space-y-3">
-            {% for log in logs %}
-                <article class="rounded-2xl border border-brand-border bg-[#0B0E16] p-5 shadow-[0_0_12px_rgba(0,0,0,0.3)]">
-                    <div class="flex items-center justify-between text-[10px] uppercase tracking-[0.4em] text-brand-textMuted">
-                        <span>{{ log.intent_timestamp|date:"M d, Y H:i" }}</span>
-                        <span class="text-brand-success">{{ log.get_alert_type_display }}</span>
-                    </div>
-                    <div class="mt-3 flex flex-col gap-1 text-sm text-white">
-                        <p class="font-semibold">Status: <span class="text-brand-accent">{{ log.status }}</span></p>
-                        <p class="text-brand-textMuted">Price: {{ log.price_at_alert|default:'N/A' }}</p>
-                        {% if log.error_message %}
-                            <p class="text-[13px] text-brand-textHighlight">{{ log.error_message }}</p>
-                        {% endif %}
-                    </div>
-                </article>
-            {% endfor %}
-        </div>
+            <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-slate-50 dark:bg-zinc-950 text-slate-400 dark:text-zinc-500 font-semibold border-b border-slate-200 dark:border-zinc-800 uppercase tracking-wider">
+                            <th class="px-5 py-3 font-semibold">Timestamp</th>
+                            <th class="px-5 py-3 font-semibold">Trigger Product</th>
+                            <th class="px-5 py-3 font-semibold">Alert Type</th>
+                            <th class="px-5 py-3 font-semibold">Trigger Price</th>
+                            <th class="px-5 py-3 text-right font-semibold">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                        {% for log in logs %}
+                            <tr class="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                <td class="px-5 py-3 text-slate-400 dark:text-zinc-500 font-mono">{{ log.intent_timestamp|date:"d M, H:i" }}</td>
+                                <td class="px-5 py-3 font-semibold text-slate-900 dark:text-zinc-200 truncate max-w-xs">{{ log.product.name|default:"System Notification" }}</td>
+                                <td class="px-5 py-3 text-slate-500 dark:text-zinc-400">{{ log.get_alert_type_display }}</td>
+                                <td class="px-5 py-3 font-mono text-slate-700 dark:text-zinc-300">{% if log.price_at_alert %}₹{{ log.price_at_alert }}{% else %}—{% endif %}</td>
+                                <td class="px-5 py-3 text-right">
+                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider
+                                        {% if log.status == 'SENT' %}bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400
+                                        {% elif log.status == 'FAILED' %}bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400
+                                        {% else %}bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400{% endif %}">
+                                        {{ log.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         {% else %}
-        <div class="rounded-2xl border border-brand-border bg-[#0B0E16] p-8 text-center text-sm text-brand-textMuted">
-            No notifications yet. Alerts will appear here after a target is hit and an event is triggered.
-        </div>
+            <div class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 text-center text-xs text-slate-400 dark:text-zinc-500 shadow-sm">
+                No notification runs logged in database
+            </div>
         {% endif %}
     </section>
 </div>

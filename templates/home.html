@@ -1,53 +1,99 @@
 {% extends "dashboard/dashboard_base.html" %}
+{% load static %}
 
-{% block title %}NEXUS | PRICECOM{% endblock %}
+{% block title %}PriceCom - Real-Time Price Intelligence & Tracker{% endblock %}
 
 {% block content %}
-<div class="flex flex-col border border-[#1A1F28] bg-[#1A1F28] gap-[1px]">
+<div class="max-w-5xl mx-auto py-12 space-y-16">
 
-    <!-- 1️⃣ TOP: MOVING PRODUCT ALERTS -->
-    <div class="w-full bg-[#080B0F]">
-        <c-alert_ticker />
-    </div>
+    <!-- 1️⃣ Hero Section -->
+    <header class="text-center space-y-6 max-w-3xl mx-auto py-8">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-full border border-indigo-100 dark:border-indigo-900/30">
+            <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+            <span>Now monitoring 8,400+ consumer goods</span>
+        </div>
+        <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight font-heading">
+            Price Comparison & <span class="text-indigo-600 dark:text-indigo-400">Market Intelligence</span>
+        </h1>
+        <p class="text-slate-500 dark:text-zinc-400 text-base md:text-lg font-medium leading-relaxed">
+            Surveil price fluctuations across Amazon and Flipkart, monitor historical trend analytics, and configure automatic alerts to acquire assets at optimal prices.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-4 pt-4">
+            <a href="{% url 'login' %}" class="inline-flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+                Start Tracking Free
+            </a>
+            <a href="#features" class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-sm rounded-xl border border-slate-200 dark:border-zinc-800 transition">
+                Learn More
+            </a>
+        </div>
+    </header>
 
-    <!-- 2️⃣ CENTER: SEARCH PANEL -->
-    <div class="w-full bg-[#080B0F]">
-        <c-search_panel />
-    </div>
+    <!-- 2️⃣ Feature Grid -->
+    <section id="features" class="space-y-6 pt-8">
+        <div class="text-center">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Core Utilities</h2>
+            <h3 class="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight mt-2 font-heading">Engineered for Price Optimization</h3>
+        </div>
 
-    <!-- BOTTOM SPLIT Area -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-[1px] w-full">
-
-        <!-- 3️⃣ BOTTOM LEFT: ANALYTICS PANELS -->
-        <div class="lg:col-span-8 flex flex-col gap-[1px] bg-[#1A1F28]">
-            <div class="bg-[#080B0F] p-4 h-full flex flex-col gap-4 relative">
-                <!-- Inner Layout Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Left: Predictor + Watchlist -->
-                    <div class="flex flex-col gap-4">
-                        <c-ai_predictor />
-                        <c-watchlist />
-                    </div>
-
-                    <!-- Right: Purchase Chart -->
-                    <div class="h-full">
-                        <c-purchase_chart />
-                    </div>
+        <div class="grid gap-6 md:grid-cols-2">
+            <!-- Feature 1 -->
+            <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-base mb-4">
+                    <i class="fas fa-balance-scale"></i>
                 </div>
-            </div>
-        </div>
-
-        <!-- 4️⃣ BOTTOM RIGHT: DEAL OPPORTUNITIES -->
-        <div class="lg:col-span-4 bg-[#080B0F] relative">
-            <!-- Glowing vertical divider -->
-            <div
-                class="absolute -left-[1px] top-0 bottom-0 w-[1px] bg-[#00e5ff]/20 shadow-[0_0_10px_#00e5ff] z-10 pointer-events-none hidden lg:block">
+                <h4 class="text-base font-bold text-slate-900 dark:text-white">Unified Comparison Engine</h4>
+                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">
+                    Aggregate real-time prices side-by-side from e-commerce retailers, allowing you to instantly locate the absolute lowest offer available.
+                </p>
             </div>
 
-            <c-opportunity_feed />
-        </div>
+            <!-- Feature 2 -->
+            <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-base mb-4">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <h4 class="text-base font-bold text-slate-900 dark:text-white">Automated Drop Alerts</h4>
+                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">
+                    Set a custom price threshold for any product. Our back-end scraping tasks check offers periodically and notify you instantly when targets are met.
+                </p>
+            </div>
 
-    </div>
+            <!-- Feature 3 -->
+            <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-base mb-4">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h4 class="text-base font-bold text-slate-900 dark:text-white">Historical Trend Timelines</h4>
+                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">
+                    Analyze historic price charts and volatility margins over 7 days, 1 month, or year-to-date, checking market trends for informed buying choices.
+                </p>
+            </div>
+
+            <!-- Feature 4 -->
+            <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-base mb-4">
+                    <i class="fas fa-camera"></i>
+                </div>
+                <h4 class="text-base font-bold text-slate-900 dark:text-white">OCR Image Matchmaker</h4>
+                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">
+                    Upload photos of packaging or model codes. Our AI scanner runs visual OCR to extract title signatures, routing matches to the comparison engine.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3️⃣ Onboarding CTA -->
+    <section class="bg-gradient-to-r from-indigo-500 to-indigo-700 text-white rounded-3xl p-8 md:p-12 text-center space-y-6 shadow-md relative overflow-hidden">
+        <h3 class="text-2xl md:text-3xl font-extrabold tracking-tight font-heading">Ready to optimize your purchases?</h3>
+        <p class="text-indigo-100 max-w-xl mx-auto text-xs md:text-sm">
+            Sign up for a free local account or authenticate with Google/GitHub to build your custom watchlist and surveillance matrix today.
+        </p>
+        <div>
+            <a href="{% url 'login' %}" class="inline-flex items-center justify-center px-6 py-3 bg-white text-indigo-600 hover:bg-slate-50 font-bold text-sm rounded-xl shadow-lg transition">
+                Create Account
+            </a>
+        </div>
+    </section>
 
 </div>
 {% endblock %}

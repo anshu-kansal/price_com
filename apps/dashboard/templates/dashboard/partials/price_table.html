@@ -1,32 +1,22 @@
-<div class="terminal-panel flex flex-col h-full bg-[#05080c]">
-    <div class="p-3 border-b border-brand-border flex items-center justify-between bg-[#0a0d14]">
-        <h2 class="text-sm font-bold text-brand-textHighlight flex items-center font-mono uppercase tracking-widest">
-            <span class="text-brand-accent mr-2">::</span> MARKET_COMPARISON_MATRIX
-        </h2>
-        <div class="font-mono text-[10px] text-brand-textMuted flex items-center" id="sync-status">
-            <span class="h-1.5 w-1.5 bg-brand-success mr-2 animate-pulse"></span>
-            SYNC_ACTIVE
-        </div>
-    </div>
-
+<div class="w-full flex flex-col h-full bg-white dark:bg-zinc-900 overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse min-w-[800px] font-mono whitespace-nowrap">
+        <table class="w-full text-left border-collapse whitespace-nowrap">
             <thead>
-                <tr class="bg-[#080B0F] text-[10px] text-brand-textMuted uppercase tracking-wider border-b border-brand-border">
-                    <th class="px-4 py-2 font-normal">ASSET_ID</th>
-                    <th class="px-4 py-2 font-normal">STORE</th>
-                    <th class="px-4 py-2 font-normal">PRICE</th>
-                    <th class="px-4 py-2 font-normal">MIN_VAL</th>
-                    <th class="px-4 py-2 font-normal">TREND</th>
-                    <th class="px-4 py-2 text-right font-normal">EXEC</th>
+                <tr class="bg-slate-50 dark:bg-zinc-950 text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800">
+                    <th class="px-6 py-3.5 font-bold">Product</th>
+                    <th class="px-6 py-3.5 font-bold">Seller</th>
+                    <th class="px-6 py-3.5 font-bold">Store Price</th>
+                    <th class="px-6 py-3.5 font-bold">Lowest Price</th>
+                    <th class="px-6 py-3.5 font-bold">Price Delta</th>
+                    <th class="px-6 py-3.5 text-right font-bold">Action</th>
                 </tr>
             </thead>
-            <tbody id="products-tbody" class="divide-y divide-brand-border text-xs"
+            <tbody id="products-tbody" class="divide-y divide-slate-100 dark:divide-zinc-800 text-xs"
                 hx-get="/dashboard/api/products/" hx-trigger="load" hx-swap="innerHTML">
                 <tr>
-                    <td colspan="6" class="px-4 py-12 text-center text-brand-textMuted">
-                        <i class="fas fa-circle-notch fa-spin text-brand-accent mr-2 text-xl"></i>
-                        <span class="animate-pulse tracking-widest uppercase text-xs">FETCHING_ASSET_DATA...</span>
+                    <td colspan="6" class="px-6 py-16 text-center text-slate-400 dark:text-zinc-500">
+                        <i class="fas fa-circle-notch fa-spin text-indigo-500 mr-2 text-base"></i>
+                        <span class="animate-pulse tracking-wide font-medium">Acquiring market pricing vectors...</span>
                     </td>
                 </tr>
             </tbody>

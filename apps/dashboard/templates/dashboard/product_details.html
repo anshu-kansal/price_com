@@ -1,312 +1,353 @@
 {% extends "dashboard/dashboard_base.html" %}
+{% load static %}
+{% load freshness_filters %}
 
-{% block title %}{{ product.name }} | PRICECOM{% endblock %}
+{% block title %}{{ product.name }} | PriceCom{% endblock %}
 
 {% block content %}
-<div class="w-full bg-transparent flex flex-col">
+<div class="space-y-6 md:space-y-10 pb-20">
 
-    <!-- Premium Header Navigation -->
-    <div class="glass-panel border-b border-brand-border z-10 relative">
-        <div class="max-w-7xl mx-auto px-6 py-4 grid grid-cols-3 items-center">
-            <div class="flex items-center">
-                <a href="{% url 'dashboard:index' %}{% if request.GET.q %}?q={{ request.GET.q }}{% endif %}" class="group flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.3em] text-brand-textMuted hover:text-brand-accent transition-all">
-                    <span class="text-brand-accent group-hover:translate-x-[-4px] transition-transform"> < </span> [ BACK ]
-                </a>
-            </div>
-            <div class="flex flex-col items-center text-center">
-                <h1 class="text-[10px] font-black text-white uppercase tracking-[0.5em] mb-1">PRODUCT DETAIL</h1>
-                <div class="flex items-center gap-2 text-[8px] font-mono text-brand-accent/60 uppercase tracking-widest">
-                    <span class="w-1 h-1 rounded-full bg-brand-accent animate-pulse"></span>
-                    LIVE_FEED
-                </div>
-            </div>
-            <div class="text-[9px] font-mono text-brand-textMuted/40 uppercase tracking-widest hidden md:block text-right">
-                ID: {{ product.id|slice:":8" }}
-            </div>
+    <!-- Breadcrumbs & SKU -->
+    <div class="flex items-center justify-between text-xs font-semibold">
+        <nav class="flex text-slate-500 dark:text-slate-400" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="{% url 'dashboard:index' %}" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition">Explore</a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-[10px] mx-2 opacity-50"></i>
+                        <span class="hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer">{{ product.category.name|default:"Catalog" }}</span>
+                    </div>
+                </li>
+                <li aria-current="page">
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-[10px] mx-2 opacity-50"></i>
+                        <span class="text-slate-800 dark:text-slate-200 truncate max-w-[150px] md:max-w-xs">{{ product.name }}</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        <div class="text-slate-400 dark:text-slate-500 font-mono hidden md:block">
+            SKU: {{ product.sku|default:"N/A" }}
         </div>
-        <div class="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-brand-accent/30 to-transparent"></div>
     </div>
 
-    <!-- Main Content Grid -->
-    <div class="flex-1 p-6">
-        <div class="max-w-7xl mx-auto">
-            
-            <!-- Top Banner: Product Identity -->
-            <div class="mb-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                <div class="max-w-3xl">
-                    <div class="flex items-center gap-3 mb-4">
-                        <span class="bg-brand-accent/10 border border-brand-accent/20 text-brand-accent px-3 py-1 rounded-none text-[10px] font-bold tracking-widest uppercase">
-                            LIVE_INTEL_FEED
-                        </span>
-                        <span class="text-[10px] text-brand-textMuted font-mono">/ 256-bit_SSL_SECURE</span>
-                    </div>
-                    <h2 class="text-xl md:text-2xl font-extrabold text-white leading-tight mb-4 tracking-tight">
-                        {{ product.name }}
-                    </h2>
-                    <div class="flex flex-wrap items-center gap-6 text-[11px] font-medium text-brand-textMuted uppercase tracking-widest">
-                        <div class="flex items-center gap-2">
-                             <div class="w-2 h-2 rounded-full bg-brand-success shadow-[0_0_8px_rgba(0,255,157,0.5)]"></div>
-                             VERIFIED_MODEL
-                        </div>
-                        <div class="flex items-center gap-2">
-                             <i class="fas fa-microchip text-brand-accent/40"></i>
-                             MODEL_IDENTIFIER: 0x{{ product.id|slice:":4"|upper }}
-                        </div>
-                    </div>
+    <!-- Main Left-Right Split Showcase -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+        
+        <!-- Left Side: Product Showcase Gallery (Col-span 5) -->
+        <div class="lg:col-span-5 space-y-4 sticky top-24">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 flex items-center justify-center min-h-[400px] relative shadow-sm group overflow-hidden">
+                <!-- Main Image -->
+                {% with cheapest=stores|first %}
+                <img id="main-product-showcase" 
+                 src="{{ cheapest.image_url|default:'' }}" 
+                 alt="{{ product.name }}" 
+                 class="max-h-[320px] object-contain transition-transform duration-500 group-hover:scale-110"
+                 onerror="this.src='{% if product.prices.first.image_url %}{{ product.prices.first.image_url }}{% else %}/static/images/placeholder.png{% endif %}';">
+                {% endwith %}
+
+                <span class="absolute top-6 left-6 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold tracking-wider">
+                    {{ product.brand_name|default:"Catalogued" }}
+                </span>
+            </div>
+
+            <!-- Image Gallery Thumbs -->
+            <div class="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
+                {% for store in stores %}
+                {% if store.price %}
+                <button onclick="document.getElementById('main-product-showcase').src='{{ store.image_url|default:store.product_url }}'" 
+                        class="shrink-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-2xl p-2 h-20 w-20 flex items-center justify-center transition-all focus:outline-none snap-center">
+                    <img src="{{ store.image_url|default:store.product_url }}" alt="Thumb" class="max-h-full object-contain" onerror="this.src='/static/images/placeholder.png';">
+                </button>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Right Side: Core Info & Store Comparison (Col-span 7) -->
+        <div class="lg:col-span-7 space-y-8">
+            <div>
+                <!-- Deal Score Badge Component -->
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 border {% if trend_label == 'DOWN' %}bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400{% else %}bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400{% endif %}">
+                    {% if trend_label == 'DOWN' %}
+                    <i class="fas fa-fire-alt"></i>
+                    <span class="text-xs font-bold tracking-wide">Deal Score: 92/100 — Excellent Buy</span>
+                    {% else %}
+                    <i class="fas fa-eye"></i>
+                    <span class="text-xs font-bold tracking-wide">Deal Score: 75/100 — Monitor Price</span>
+                    {% endif %}
                 </div>
 
-                <!-- Global Actions Panel -->
-                <div class="flex flex-wrap gap-3 glass-panel p-2 rounded-sm border border-white/5 shadow-2xl">
+                <!-- Title -->
+                <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+                    {{ product.name }}
+                </h1>
+                
+                <div class="flex items-center gap-4 mt-4 text-sm font-semibold">
+                    <div class="flex items-center text-amber-500 gap-1">
+                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i>
+                    </div>
+                    <span class="text-slate-500 dark:text-slate-400 underline decoration-slate-300 dark:decoration-slate-600 underline-offset-4 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">1,204 Reviews</span>
+                </div>
+            </div>
+
+            <!-- Current Best Price Hero -->
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-slate-200 dark:border-slate-800">
+                <div>
+                    <p class="text-sm font-bold text-slate-500 dark:text-slate-400 mb-2">Lowest Current Price</p>
+                    <div class="flex items-baseline gap-4">
+                        <span class="text-5xl font-black font-mono text-slate-900 dark:text-white tracking-tighter">{{ current_lowest_price_display }}</span>
+                        {% if product.base_price and product.base_price > current_lowest_price %}
+                        <span class="text-lg font-medium line-through text-slate-400 dark:text-slate-500">{{ product.base_price }}</span>
+                        {% endif %}
+                    </div>
+                    {% if product.base_price and product.base_price > current_lowest_price %}
+                    <div class="mt-3 inline-flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-lg text-sm font-bold">
+                        <i class="fas fa-arrow-down"></i> Save {{ product.discount_percentage }}% Today
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Track Product Button -->
+                <div class="w-full md:w-auto">
                     {% if is_watchlisted %}
                     <button hx-post="/scraper/watchlist/toggle/" hx-vals='{"product_id": "{{ product.id }}"}' hx-swap="outerHTML"
-                            class="bg-brand-accent text-brand-base font-bold py-2.5 px-6 flex items-center gap-2 text-[10px] uppercase tracking-widest hover:brightness-110 transition-all">
-                        <i class="fas fa-heart"></i> WATCHED
+                            class="w-full md:w-64 inline-flex items-center justify-center gap-2 px-6 py-4 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400 rounded-2xl text-sm font-bold transition-all shadow-sm">
+                        <i class="fas fa-check-circle"></i> Tracking Active
                     </button>
                     {% else %}
                     <button hx-post="/scraper/watchlist/toggle/" hx-vals='{"product_id": "{{ product.id }}"}' hx-swap="outerHTML"
-                            class="border border-brand-accent/30 text-brand-accent font-bold py-2.5 px-6 flex items-center gap-2 text-[10px] uppercase tracking-widest hover:bg-brand-accent hover:text-brand-base transition-all">
-                        <i class="far fa-heart"></i> WATCHLIST
+                            class="w-full md:w-64 inline-flex items-center justify-center gap-2 px-6 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50">
+                        <i class="fas fa-bell"></i> Track Price Drops
                     </button>
                     {% endif %}
-
-                    <button onclick="openPriceAlertModal();"
-                            class="bg-white/5 border border-white/10 text-white font-bold py-2.5 px-6 flex items-center gap-2 text-[10px] uppercase tracking-widest hover:border-brand-accent/50 transition-all">
-                        <i class="fas fa-bell"></i> ALERT_CONFIG
-                    </button>
                 </div>
             </div>
 
-            <!-- Dashboard Layout Engine -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                
-                <!-- Left Column: Primary Metrics & Visualization -->
-                <div class="lg:col-span-8 space-y-6">
-                    
-                    <!-- Stats Grid -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {% for label, val, color, note in stat_cards %}
-                        <div class="premium-card p-5 relative group overflow-hidden">
-                            <div class="text-[10px] text-brand-textMuted uppercase tracking-widest mb-2 font-bold">{{ label }}</div>
-                            <div class="text-2xl font-black {{ color }} mb-1">{{ val }}</div>
-                            <div class="text-[8px] text-white/30 uppercase font-mono tracking-tighter">{{ note }}</div>
-                            <!-- Subtle decorative elements -->
-                            <div class="absolute bottom-0 right-0 w-12 h-12 bg-white/5 rotate-45 translate-x-8 translate-y-8 group-hover:bg-brand-accent/5 transition-colors"></div>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                    <!-- Store Price Matrix (Horizontal Comparison) -->
-                    <div class="premium-card p-6">
-                        <div class="flex items-center justify-between mb-8">
+            <!-- Store Comparison Matrix -->
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Available at</h3>
+                <div class="space-y-3">
+                    {% for store in stores %}
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-emerald-500/50 transition-colors">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-xl shrink-0">
+                                {% if store.name == 'Amazon' %}<i class="fab fa-amazon text-slate-700 dark:text-slate-300"></i>{% elif store.name == 'Flipkart' %}<i class="fas fa-shopping-bag text-slate-700 dark:text-slate-300"></i>{% else %}<i class="fas fa-store text-slate-700 dark:text-slate-300"></i>{% endif %}
+                            </div>
                             <div>
-                                <h3 class="text-sm font-black text-white uppercase tracking-[0.2em] mb-1">Store Price Matrix</h3>
-                                <p class="text-[10px] font-mono text-brand-textMuted uppercase tracking-widest">REALTIME_MARKET_DISTRIBUTION</p>
-                            </div>
-                            <div class="flex items-center gap-4 text-[9px] uppercase tracking-widest">
-                                <span class="flex items-center gap-1.5"><div class="w-1.5 h-1.5 rounded-full bg-brand-success"></div> LOWEST</span>
-                                <span class="flex items-center gap-1.5"><div class="w-1.5 h-1.5 rounded-full bg-brand-accent"></div> REGULAR</span>
+                                <h4 class="font-bold text-slate-900 dark:text-white">{{ store.name }}</h4>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="w-2 h-2 rounded-full {% if store.available %}bg-emerald-500{% else %}bg-red-500{% endif %}"></span>
+                                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ store.availability_label }}</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="border border-white/10 bg-white/[0.02] p-2 pt-6 rounded-sm">
-                            <div id="storeComparisonChart" class="h-64"></div>
+                        <div class="flex items-center justify-between sm:justify-end gap-6 sm:w-1/2">
+                            <div class="text-right">
+                                <span class="block text-xl font-bold font-mono text-slate-900 dark:text-white">{{ store.price_display }}</span>
+                                <span class="text-[10px] text-slate-400 font-medium uppercase tracking-widest">{{ store.last_updated|date:"d M, H:i" }}</span>
+                            </div>
+                            <a href="{{ store.product_url }}" target="_blank" rel="noopener noreferrer" 
+                               class="shrink-0 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-bold rounded-xl transition shadow-sm">
+                                Buy Now
+                            </a>
                         </div>
                     </div>
-
-                    <!-- Historical Price Analysis -->
-                    <div class="premium-card p-6">
-                        <div class="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 class="text-sm font-black text-white uppercase tracking-[0.2em] mb-1">Price History Timeline</h3>
-                                <p class="text-[10px] font-mono text-brand-textMuted uppercase tracking-widest">DATA_LOG_SERIAL_STREAM</p>
-                            </div>
-                            <div class="text-brand-accent/40 animate-pulse"><i class="fas fa-satellite-dish"></i></div>
-                        </div>
-                        <div class="border border-white/10 bg-white/[0.02] p-2 pt-6 rounded-sm">
-                            <div id="historyTimelineChart" class="h-96"></div>
-                        </div>
+                    {% empty %}
+                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center text-slate-500 font-medium">
+                        Currently out of stock across all monitored stores.
                     </div>
+                    {% endfor %}
                 </div>
-
-                <!-- Right Column: Intel Feed & Store Details -->
-                <div class="lg:col-span-4 space-y-6">
-                    
-                    <!-- Marketplace Intel Table -->
-                    <div class="premium-card overflow-hidden">
-                        <div class="p-5 border-b border-white/5">
-                            <h3 class="text-xs font-black text-white uppercase tracking-[0.2em]">Sellers_intel</h3>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-[11px] font-mono">
-                                <tbody class="divide-y divide-white/5">
-                                    {% for store in stores %}
-                                    <tr class="group hover:bg-white/5 transition-colors">
-                                        <td class="py-4 px-5">
-                                            <div class="text-white font-bold uppercase mb-1">{{ store.name }}</div>
-                                            <div class="text-[9px] text-white/30 tracking-tighter">{{ store.last_updated|date:"d M H:i" }}</div>
-                                        </td>
-                                        <td class="py-4 px-2 text-right">
-                                            <div class="text-brand-success font-black text-xs">{{ store.price_display }}</div>
-                                            <div class="text-[8px] uppercase tracking-widest {% if store.available %}text-brand-success/50{% else %}text-brand-danger/50{% endif %}">
-                                                {{ store.availability_label }}
-                                            </div>
-                                        </td>
-                                        <td class="py-4 px-5 text-right">
-                                            {% if store.product_url %}
-                                            <a href="{{ store.product_url }}" target="_blank" 
-                                               class="text-brand-accent/60 hover:text-brand-accent hover:neon-text-accent transition-all">
-                                                <i class="fas fa-external-link-alt"></i>
-                                            </a>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Price Sentiment Analysis Mockup -->
-                    <div class="premium-card p-5 bg-brand-accent/[0.02]">
-                         <div class="text-[10px] text-brand-accent uppercase font-black tracking-widest mb-4 flex items-center gap-2">
-                             <i class="fas fa-brain translate-y-[-1px]"></i> PREDICTION_ENGINE
-                         </div>
-                         <div class="space-y-4">
-                              <div class="flex items-center justify-between">
-                                  <span class="text-[10px] text-white/60">BUY_PROBABILITY</span>
-                                  <span class="text-xs font-black text-brand-success">85%_OPTIMAL</span>
-                              </div>
-                              <div class="w-full h-1 bg-white/5 overflow-hidden">
-                                  <div class="h-full bg-brand-success w-[85%] shadow-[0_0_8px_rgba(0,255,157,0.5)]"></div>
-                              </div>
-                              <p class="text-[9px] text-brand-textMuted leading-relaxed">
-                                  Neural analysis indicates current pricing is in the lowest 10th percentile for this SKU. Recommend immediate acquisition to avoid supply volatility.
-                              </p>
-                         </div>
-                    </div>
-
-                </div>
-
             </div>
+
         </div>
     </div>
-</div>
 
-<!-- Price Alert Modal (Styled) -->
-<div id="price-alert-modal" class="hidden fixed inset-0 z-[100] backdrop-blur-xl bg-brand-base/80 flex items-center justify-center p-4">
-    <div class="w-full max-w-md glass-panel p-8 shadow-2xl relative overflow-hidden">
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-accent via-brand-success to-brand-accent animate-gradient-x"></div>
-        <div class="flex items-center justify-between mb-10">
-            <div>
-                <h3 class="text-lg font-black text-white uppercase tracking-[0.2em] mb-1">Configure_Alert</h3>
-                <p class="text-[10px] font-mono text-brand-accent tracking-[0.3em]">SYSTEM_TRIGGER_SETUP</p>
+    <!-- Below Grid: The TradingView Experience & Insights -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8 border-t border-slate-200 dark:border-slate-800">
+        
+        <!-- Left: Price History Chart (Col-span 2) -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Price History</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Track market fluctuations over time</p>
+                </div>
+                <!-- Mock Chart Filters -->
+                <div class="hidden sm:flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+                    <button class="px-4 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition">7D</button>
+                    <button class="px-4 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition">30D</button>
+                    <button class="px-4 py-1.5 text-xs font-bold rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm transition">6M</button>
+                    <button class="px-4 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition">1Y</button>
+                </div>
             </div>
-            <button onclick="closePriceAlertModal();" class="text-white/20 hover:text-white transition-all text-xl">✕</button>
+
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                <div class="h-96 w-full relative">
+                    <!-- Absolute position mock watermark -->
+                    <div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none z-0">
+                        <i class="fas fa-chart-line text-9xl"></i>
+                    </div>
+                    <div id="historyTimelineChart" class="h-full relative z-10"></div>
+                </div>
+            </div>
         </div>
 
-        <form method="post" action="{% url 'dashboard:set_price_alert_from_product' %}" class="space-y-8">
+        <!-- Right: Market Intelligence Insights -->
+        <div class="lg:col-span-1 space-y-6">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Market Intelligence</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Algorithm verdict and analytics</p>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+                <!-- Verdict -->
+                <div class="pb-6 border-b border-slate-100 dark:border-slate-800">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Algorithm Verdict</p>
+                    {% if trend_label == 'DOWN' %}
+                    <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400 leading-snug">Excellent Buying Opportunity. Current price is at a historical low.</p>
+                    {% else %}
+                    <p class="text-lg font-bold text-amber-600 dark:text-amber-500 leading-snug">Wait for a Drop. Prices are currently hovering near the average.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400"><i class="fas fa-arrow-down text-xs"></i></div>
+                            <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">Lowest Ever</span>
+                        </div>
+                        <span class="font-bold font-mono text-slate-900 dark:text-white">{{ insights.lowest_price_display }}</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400"><i class="fas fa-minus text-xs"></i></div>
+                            <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">Average Price</span>
+                        </div>
+                        <span class="font-bold font-mono text-slate-900 dark:text-white">{{ insights.avg_price_display }}</span>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400"><i class="fas fa-arrow-up text-xs"></i></div>
+                            <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">Highest Ever</span>
+                        </div>
+                        <span class="font-bold font-mono text-slate-900 dark:text-white">{{ insights.highest_price_display }}</span>
+                    </div>
+                </div>
+
+                <button onclick="openPriceAlertModal();" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white py-3 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2">
+                    <i class="fas fa-bell text-amber-500"></i> Alert me when it drops
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Price Alert Setup Modal -->
+<div id="price-alert-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-3xl shadow-2xl relative transition-all" onclick="event.stopPropagation();">
+        <button onclick="closePriceAlertModal();" class="absolute top-6 right-6 text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+            <i class="fas fa-times text-lg"></i>
+        </button>
+
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-500 text-2xl">
+                <i class="fas fa-bell"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-900 dark:text-white">Set Target Price</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">We'll email you immediately if the price drops below your target.</p>
+        </div>
+
+        <form method="post" action="{% url 'dashboard:set_price_alert_from_product' %}" class="space-y-6">
             {% csrf_token %}
             <input type="hidden" name="product_id" value="{{ product.id }}">
             
-            <div class="space-y-3">
-                <label class="block text-[10px] uppercase font-black tracking-[0.2em] text-white/60">Set_Threshold_Value</label>
+            <div>
                 <div class="relative">
-                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-brand-accent font-black">₹</span>
+                    <span class="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-black text-2xl font-mono">₹</span>
                     <input type="number" step="0.01" required name="target_price" 
                            value="{{ current_lowest_price }}"
-                           class="w-full bg-white/5 border border-white/10 pl-10 pr-4 py-4 text-white font-black text-lg focus:outline-none focus:border-brand-accent transition-all">
+                           class="w-full bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 pl-14 pr-6 py-4 rounded-2xl text-slate-900 dark:text-white font-black font-mono text-3xl focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500 transition-colors text-center">
                 </div>
-                <div class="flex justify-between text-[8px] font-mono text-brand-textMuted uppercase">
-                    <span>Current_Min: {{ current_lowest_price_display }}</span>
-                    <span>SKU_REF: {{ product.id|slice:":8" }}</span>
+                <div class="flex justify-center text-xs font-semibold text-slate-500 dark:text-slate-400 mt-3 gap-2">
+                    <span>Current Lowest:</span>
+                    <span class="text-slate-900 dark:text-white">{{ current_lowest_price_display }}</span>
                 </div>
             </div>
 
-            <div class="flex gap-4 pt-4">
-                <button type="button" onclick="closePriceAlertModal();"
-                        class="flex-1 border border-white/10 text-white/60 font-black py-4 text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all">ABORT</button>
-                <button type="submit"
-                        class="flex-1 bg-brand-accent text-brand-base font-black py-4 text-[10px] uppercase tracking-widest hover:brightness-110 shadow-[0_0_20px_rgba(0,229,255,0.2)] transition-all">ENABLE_SURVEILLANCE</button>
-            </div>
+            <button type="submit" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold rounded-2xl shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 transition-all">
+                Create Price Alert
+            </button>
         </form>
     </div>
 </div>
 
+<style>
+    /* Hide scrollbar for gallery but keep functionality */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
-    function openPriceAlertModal() { document.getElementById('price-alert-modal')?.classList.remove('hidden'); }
-    function closePriceAlertModal() { document.getElementById('price-alert-modal')?.classList.add('hidden'); }
+    function openPriceAlertModal() { 
+        document.getElementById('price-alert-modal').classList.remove('hidden'); 
+    }
+    
+    function closePriceAlertModal() { 
+        document.getElementById('price-alert-modal').classList.add('hidden'); 
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
-        const dashboardFont = '"Plus Jakarta Sans", "Space Grotesk", sans-serif';
+        const dashboardFont = '"Plus Jakarta Sans", sans-serif';
 
-        // --- 1. Store Price Comparison (Horizontal Bar Chart) ---
-        const barData = {{ bar_chart_json|safe }};
-        if (barData?.stores?.length) {
-            const minPrice = Math.min(...barData.prices);
-            
-            new ApexCharts(document.querySelector("#storeComparisonChart"), {
-                chart: { type: 'bar', height: '100%', toolbar: { show: false }, background: 'transparent', fontFamily: dashboardFont },
-                series: [{ name: 'Price', data: barData.prices.map((p, i) => ({ x: barData.stores[i], y: p, fillColor: p === minPrice ? '#00ff9d' : '#00e5ff' })) }],
-                plotOptions: { bar: { horizontal: true, barHeight: '45%', borderRadius: 0 } },
-                xaxis: { 
-                    labels: { style: { colors: '#64748b', fontSize: '9px', fontWeight: 600 }, formatter: val => '₹' + val.toLocaleString() },
-                    axisBorder: { show: false }, axisTicks: { show: false }
-                },
-                yaxis: { labels: { style: { colors: '#ffffff', fontSize: '10px', fontWeight: 800 } } },
-                grid: { 
-                    borderColor: 'rgba(255,255,255,0.03)', 
-                    xaxis: { lines: { show: true } }, 
-                    yaxis: { lines: { show: false } },
-                    padding: { 
-                        top: 20,
-                        bottom: 0,
-                        right: 40
-                    }
-                },
-                dataLabels: { enabled: true, offsetX: 35, style: { colors: ['#ffffff'], fontSize: '10px', fontWeight: 700 }, formatter: val => '₹' + val.toLocaleString() },
-                tooltip: { theme: 'dark', y: { formatter: val => '₹' + val.toLocaleString() } },
-                annotations: {
-                    xaxis: [{
-                        x: minPrice, borderColor: '#00ff9d', strokeDashArray: 4, 
-                        label: {
-                            text: 'MARKET_LOWEST', orientation: 'horizontal', position: 'top', textAnchor: 'start', offsetY: -18, offsetX: 10,
-                            style: { color: '#00ff9d', background: 'rgba(13,17,23,0.9)', fontSize: '9px', fontWeight: 900, padding: { left: 8, right: 8, top: 4, bottom: 4 } }
-                        }
-                    }]
-                }
-            }).render();
-        }
-
-        // --- 2. Price History Timeline (Multi-line Chart) ---
+        // --- Price History Line Timeline Chart (TradingView aesthetic) ---
         const timelineData = {{ chart_json|safe }};
         if (timelineData?.series?.length) {
             new ApexCharts(document.querySelector("#historyTimelineChart"), {
-                chart: { type: 'line', height: '100%', toolbar: { show: false }, background: 'transparent', zoom: { enabled: false }, fontFamily: dashboardFont },
+                chart: { type: 'area', height: '100%', toolbar: { show: false }, background: 'transparent', zoom: { enabled: false }, fontFamily: dashboardFont },
                 series: timelineData.series,
-                colors: ['#00e5ff', '#ff3366', '#00ff9d', '#ffb000', '#a855f7'],
+                colors: ['#10b981', '#f59e0b', '#6366f1', '#ec4899', '#a855f7'],
                 stroke: { width: 3, curve: 'smooth' },
+                fill: {
+                    type: 'gradient',
+                    gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.0, stops: [0, 100] }
+                },
                 xaxis: { 
                     categories: timelineData.categories,
-                    labels: { show: true, style: { colors: '#64748b', fontSize: '9px', fontWeight: 600 }, rotate: -45, offsetY: 0, hideOverlappingLabels: true, trim: true },
-                    tickAmount: 12, 
-                    axisBorder: { show: true, color: 'rgba(255,255,255,0.1)' }, 
-                    axisTicks: { show: true, color: 'rgba(255,255,255,0.1)' }
+                    labels: { show: true, style: { colors: '#94a3b8', fontSize: '11px', fontWeight: 600 }, rotate: -45, hideOverlappingLabels: true, trim: true },
+                    tickAmount: 10, 
+                    axisBorder: { show: false }, 
+                    axisTicks: { show: false },
+                    tooltip: { enabled: false }
                 },
                 yaxis: { 
                     forceNiceScale: true,
-                    labels: { style: { colors: '#64748b', fontSize: '9px', fontWeight: 600 }, formatter: val => '₹' + val.toLocaleString() } 
+                    labels: { style: { colors: '#94a3b8', fontSize: '11px', fontWeight: 600 }, formatter: val => '₹' + val.toLocaleString() },
+                    opposite: true // TradingView style puts Y axis on the right
                 },
                 grid: { 
-                    borderColor: 'rgba(255,255,255,0.03)',
-                    padding: {
-                        bottom: 40,
-                        right: 20
-                    }
+                    borderColor: 'rgba(148, 163, 184, 0.1)',
+                    strokeDashArray: 4,
+                    padding: { bottom: 20, left: 10, right: 10 }
                 },
-                legend: { position: 'bottom', labels: { colors: '#94a3b8' }, fontSize: '11px', fontWeight: 600, markers: { radius: 0 } },
+                legend: { position: 'top', horizontalAlign: 'left', labels: { colors: '#64748b' }, fontSize: '12px', fontWeight: 700, markers: { radius: 99 } },
                 dataLabels: { enabled: false },
-                markers: { size: 0, strokeWidth: 0, hover: { size: 6 } },
-                tooltip: { theme: 'dark', shared: true, intersect: false, y: { formatter: val => '₹' + val.toLocaleString() } }
+                markers: { size: 0, hover: { size: 6, sizeOffset: 3 } },
+                tooltip: { 
+                    theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light', 
+                    shared: true, 
+                    intersect: false, 
+                    y: { formatter: val => '₹' + val.toLocaleString() } 
+                }
             }).render();
         }
     });

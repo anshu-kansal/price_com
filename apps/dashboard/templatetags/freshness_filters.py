@@ -34,3 +34,20 @@ def smart_freshness(value: datetime.datetime) -> str:
         
     except (ValueError, TypeError):
         return value
+
+
+@register.filter(name='float')
+def float_filter(value):
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+@register.filter(name='minus')
+def minus_filter(value, arg):
+    try:
+        return float(value) - float(arg)
+    except (ValueError, TypeError):
+        return 0.0
+

@@ -16,6 +16,8 @@
 [![Django](https://img.shields.io/badge/Django-4.2+-092E20?style=for-the-badge&logo=django&logoColor=white)]()
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)]()
 [![MySQL](https://img.shields.io/badge/Database-MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)]()
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)]()
+[![Google OAuth](https://img.shields.io/badge/Google_OAuth-4285F4?style=for-the-badge&logo=google&logoColor=white)]()
 [![Selenium](https://img.shields.io/badge/Engine-Selenium-43B02A?style=for-the-badge&logo=selenium&logoColor=white)]()
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen?style=for-the-badge)]()
 
@@ -70,6 +72,8 @@ The engine is designed for **zero-lag awareness**: the moment a store updates a 
 
 | Pillar | Description | Business Impact |
 |--------|-------------|-----------------|
+| **Premium SaaS Interface** | Built with Tailwind CSS, featuring a responsive Zinc/Indigo aesthetic, dark mode support, and micro-interactions | Delivers a modern, consumer-grade experience that drives engagement and trust |
+| **Google OAuth Integration** | Seamless one-click onboarding via `django-allauth` and Google APIs | Reduces friction for new users, significantly increasing conversion rates |
 | **Cross-Platform Matrix** | Semantic matching bridges Amazon × Flipkart product listings using a Token-Sort + Levenshtein algorithm with >85% similarity threshold | Eliminates manual product de-duplication; builds a unified comparison layer across all registered stores |
 | **Atomic Price Sync** | `StorePrice.save()` signals trigger `Product.update_lowest_price()` atomically, ensuring the dashboard always reflects the true market floor | Zero stale reads on the dashboard; eliminates the data consistency lag that plagues traditional scrapers |
 | **SHA-256 Financial Integrity** | Every price record generates a cryptographic fingerprint (`price + store + timestamp`) committed to the database | Provides immutable, tamper-evident audit proof suitable for regulatory and financial compliance review |
@@ -775,6 +779,10 @@ EMAIL_PORT=587
 EMAIL_USE_TLS=True
 EMAIL_HOST_USER=apikey
 EMAIL_HOST_PASSWORD=your_sendgrid_api_key
+
+# ── Authentication (Google OAuth) ─────────────────────────
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
 
 # ── Scraper Behaviour ─────────────────────────────────────
 SCRAPER_MIN_DELAY_SECONDS=2.0

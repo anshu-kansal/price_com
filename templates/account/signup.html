@@ -1,15 +1,94 @@
 {% extends "base.html" %}
 {% load socialaccount %}
 {% block content %}
+<div class="space-y-6">
+    <div class="text-center space-y-2">
+        <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Price Comparison Portal</span>
+        <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight">Create Account</h2>
+        <p class="text-xs text-slate-400 dark:text-zinc-500">Register to track prices and configure custom drop alerts</p>
+    </div>
 
-<h2>Sign Up</h2>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Create Account</button>
-  <div style="margin-top:1rem">
-    <p>Or continue with:</p>
-    <a class="btn-google" href="{% provider_login_url 'google' %}">Continue with Google</a>
-  </div>
-</form>
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        
+        <div class="django-form-container">
+            {{ form.as_p }}
+        </div>
+
+        <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
+            Create Account
+        </button>
+    </form>
+
+    <div class="relative flex items-center justify-center my-6">
+        <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-slate-200 dark:border-zinc-800"></div>
+        </div>
+        <span class="relative bg-white dark:bg-zinc-900 px-3 text-[10px] uppercase font-bold text-slate-400 dark:text-zinc-500">Or integrate with SSO</span>
+    </div>
+
+    <div>
+        <a class="w-full inline-flex items-center justify-center gap-2.5 px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-850 hover:bg-slate-100 dark:hover:bg-zinc-900/60 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-200 shadow-sm transition" href="{% provider_login_url 'google' %}">
+            <i class="fab fa-google text-red-500"></i>
+            <span>Continue with Google</span>
+        </a>
+    </div>
+
+    <div class="text-center pt-2 text-xs">
+        <span class="text-slate-400 dark:text-zinc-500">Already registered?</span>
+        <a href="{% url 'login' %}" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline ml-1">Login here</a>
+    </div>
+</div>
+
+<style>
+    /* Styled Django Inputs targeting form.as_p */
+    .django-form-container p {
+        margin-bottom: 1.25rem;
+    }
+    .django-form-container label {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+        color: #71717a; /* text-zinc-500 */
+    }
+    .django-form-container input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background-color: #f4f4f5; /* text-zinc-100 */
+        border: 1px solid #e4e4e7;
+        border-radius: 0.75rem;
+        font-size: 0.875rem;
+        color: #09090b;
+        outline: none;
+        transition: border-color 0.2s, background-color 0.2s;
+    }
+    .dark .django-form-container input {
+        background-color: #09090b;
+        border: 1px solid #27272a;
+        color: #f4f4f5;
+    }
+    .django-form-container input:focus {
+        border-color: #6366f1;
+        background-color: #ffffff;
+    }
+    .dark .django-form-container input:focus {
+        background-color: #09090b;
+    }
+    .django-form-container .helptext {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 10px;
+        color: #a1a1aa;
+    }
+    .django-form-container .errorlist {
+        color: #ef4444;
+        font-size: 11px;
+        margin-bottom: 0.5rem;
+        list-style-type: square;
+        padding-left: 1rem;
+    }
+</style>
 {% endblock %}

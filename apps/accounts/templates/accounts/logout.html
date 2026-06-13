@@ -1,47 +1,90 @@
 {% load static %}
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logout | Pricecom</title>
+    <title>Logout | PriceCom</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="{% static 'accounts/css/auth_terminal.css' %}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        heading: ['"Space Grotesk"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('pricecom-theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 </head>
 
-<body class="auth-shell">
-    <main class="auth-main">
-        <section class="logout-grid">
-            <p class="auth-kicker">Session Control</p>
-            <div class="auth-brand">
-                <span class="brand-main">Price</span>
-                <span class="brand-accent">Com</span>
+<body class="antialiased min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 flex items-center justify-center p-4 transition-colors duration-300">
+
+    <div class="w-full max-w-sm">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <a href="/" class="inline-flex items-center gap-2 text-2xl font-extrabold text-slate-900 dark:text-white font-heading">
+                <i class="fas fa-satellite-dish text-indigo-600 dark:text-indigo-400"></i>
+                Price<span class="text-indigo-600 dark:text-indigo-400">Com</span>
+            </a>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-xl space-y-6">
+            <div class="text-center space-y-2">
+                <div class="mx-auto w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 flex items-center justify-center mb-2">
+                    <i class="fas fa-arrow-right-from-bracket text-amber-600 dark:text-amber-400 text-lg"></i>
+                </div>
+                <h1 class="text-xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight">Sign Out?</h1>
+                <p class="text-xs text-slate-400 dark:text-zinc-500">You'll need to sign in again to access your dashboard, watchlists, and price alerts.</p>
             </div>
-            <h1 class="auth-title">End Current Session?</h1>
-            <p class="auth-subtitle">This will close your active operator session and return you to secure login.</p>
 
             {% if messages %}
-            <ul class="message-list">
+            <div class="space-y-2">
                 {% for message in messages %}
-                <li class="message-item {{ message.tags|default:'' }}">{{ message }}</li>
+                <div class="px-4 py-3 rounded-xl text-xs font-semibold border
+                    {% if message.tags == 'success' %}bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400
+                    {% else %}bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400{% endif %}">
+                    {{ message }}
+                </div>
                 {% endfor %}
-            </ul>
+            </div>
             {% endif %}
 
-            <div class="logout-actions">
-                <a class="auth-button alt" href="{% url 'dashboard:index' %}" style="text-decoration: none; text-align: center;">
+            <div class="grid grid-cols-2 gap-3">
+                <a href="{% url 'dashboard:index' %}" class="inline-flex items-center justify-center px-4 py-3 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl text-xs font-bold transition no-underline">
                     Cancel
                 </a>
                 <form method="post">
                     {% csrf_token %}
-                    <button type="submit" class="auth-button">Confirm logout</button>
+                    <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
+                        Sign Out
+                    </button>
                 </form>
             </div>
-        </section>
-    </main>
+        </div>
+
+        <!-- Footer -->
+        <p class="text-center text-[10px] text-slate-400 dark:text-zinc-600 mt-6">
+            &copy; 2026 PriceCom. Real-time price comparison intelligence.
+        </p>
+    </div>
 </body>
 
 </html>

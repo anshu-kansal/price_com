@@ -1,5 +1,5 @@
 {% for p in products %}
-<tr class="hover:bg-[#0a111a] transition-none group cursor-pointer"
+<tr class="hover:bg-slate-50/60 dark:hover:bg-zinc-800/30 transition border-b border-slate-200 dark:border-zinc-800/60 group cursor-pointer"
     hx-get="/dashboard/api/products/{{ p.id }}/history/?view=panel" hx-target="#product-detail-panel"
     hx-swap="innerHTML" hx-trigger="click" @click="$store.pricecomStore.selectedProductId = {{ p.id }}; htmx.ajax('GET', '/dashboard/api/products/{{ p.id }}/history/', {swap: 'none', handler: function(elt, info){ 
         var data = JSON.parse(info.xhr.response); 
@@ -8,56 +8,72 @@
             ApexCharts.exec('priceHistoryChart', 'updateOptions', { xaxis: { categories: data.categories }});
         }
     }})">
-    <td class="px-4 py-3">
-        <div class="flex items-center space-x-3">
+    <!-- Product Cell -->
+    <td class="px-6 py-4">
+        <div class="flex items-center gap-3">
             {% if p.thumbnail %}
-            <img src="{{ p.thumbnail }}" alt="" class="w-8 h-8 rounded object-cover border border-brand-border flex-shrink-0" loading="lazy">
+            <img src="{{ p.thumbnail }}" alt="" class="w-10 h-10 rounded-xl object-contain border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-1 flex-shrink-0" loading="lazy" onerror="this.src='/static/images/placeholder.png';">
+            {% else %}
+            <div class="w-10 h-10 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex items-center justify-center text-[10px] font-bold text-slate-400 flex-shrink-0">
+                PRC
+            </div>
             {% endif %}
-            <div>
-                <p class="text-brand-textHighlight group-hover:text-brand-accent">{{ p.name }}</p>
-                <div class="flex items-center gap-2 mt-0.5">
-                    <span class="text-[9px] text-brand-textMuted"><span class="text-brand-success">{{ p.status }}</span> // 12ms</span>
+            <div class="min-w-0">
+                <p class="font-bold text-slate-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition truncate max-w-xs md:max-w-md">{{ p.name }}</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">{{ p.status }}</span>
                     {% if p.rating %}
-                    <span class="text-[9px] text-amber-400" title="Rating: {{ p.rating }}/5">
-                        {% for i in "12345" %}{% if forloop.counter <= p.rating %}★{% else %}☆{% endif %}{% endfor %}
-                        <span class="text-brand-textMuted ml-0.5">{{ p.rating }}</span>
+                    <span class="text-[10px] text-amber-500 font-medium flex items-center gap-0.5" title="Rating: {{ p.rating }}/5">
+                        <i class="fas fa-star text-[9px]"></i>
+                        <span>{{ p.rating }}</span>
                     </span>
                     {% endif %}
                     {% if p.reviews %}
-                    <span class="text-[8px] text-brand-textMuted bg-[#0D1117] px-1 rounded border border-brand-border">{{ p.reviews }} reviews</span>
+                    <span class="text-[9px] text-slate-400 dark:text-zinc-500">({{ p.reviews }} reviews)</span>
                     {% endif %}
                 </div>
             </div>
         </div>
     </td>
-    <td class="px-4 py-3 text-brand-textMuted group-hover:text-brand-accent transition-colors duration-200 uppercase text-[10px] tracking-wider font-semibold">{{ p.store }}</td>
-    <td class="px-4 py-3 tabular-nums text-brand-textHighlight">{{ p.price }}</td>
-    <td class="px-4 py-3 tabular-nums"><span class="font-bold text-brand-success">{{ p.min }}</span></td>
-    <td class="px-4 py-3">
-        <span class="text-[10px] text-brand-textMuted bg-[#0D1117] px-1 border border-brand-border">{{ p.delta }}</span>
+    <!-- Seller -->
+    <td class="px-6 py-4 text-slate-500 dark:text-zinc-400 font-bold text-xs uppercase tracking-wider">{{ p.store }}</td>
+    <!-- Real Price -->
+    <td class="px-6 py-4 font-mono font-bold text-slate-900 dark:text-zinc-100">{{ p.price }}</td>
+    <!-- Lowest Price -->
+    <td class="px-6 py-4"><span class="font-bold text-emerald-600 dark:text-emerald-400 font-mono">{{ p.min }}</span></td>
+    <!-- Delta -->
+    <td class="px-6 py-4">
+        <span class="px-2 py-0.5 rounded text-[10px] font-black font-mono tracking-tight 
+            {% if 'DROP' in p.delta %}bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400
+            {% elif 'RISE' in p.delta %}bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400
+            {% else %}bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400{% endif %}">
+            {{ p.delta }}
+        </span>
     </td>
-    <td class="px-4 py-3 text-right space-x-2">
+    <!-- Action buttons -->
+    <td class="px-6 py-4 text-right space-x-2.5" onclick="event.stopPropagation();">
         {% if p.is_watchlisted %}
         <button hx-post="/scraper/watchlist/toggle/"
                 hx-vals='{"product_id": "{{ p.id }}"}'
                 hx-target="this"
                 hx-swap="outerHTML"
-                onclick="event.preventDefault(); event.stopPropagation();"
-                class="bg-brand-accent text-[#080B0F] border border-brand-accent px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-transparent hover:text-brand-accent transition-none">
-            ★ Watching
+                class="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-100 transition shadow-sm">
+            <i class="fas fa-heart text-[8px]"></i> Watching
         </button>
         {% else %}
         <button hx-post="/scraper/watchlist/toggle/"
                 hx-vals='{"product_id": "{{ p.id }}"}'
                 hx-target="this"
                 hx-swap="outerHTML"
-                onclick="event.preventDefault(); event.stopPropagation();"
-                class="bg-transparent text-brand-accent border border-brand-accent px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-brand-accent hover:text-[#080B0F] transition-none">
-            ☆ Watch
+                class="inline-flex items-center gap-1 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition shadow-sm">
+            <i class="far fa-heart text-[8px]"></i> Watch
         </button>
         {% endif %}
+        
         <a href="{% url 'dashboard:product_detail' p.id %}{% if query %}?q={{ query }}{% endif %}"
-            class="text-brand-textMuted text-[10px] uppercase tracking-widest hover:text-brand-accent cursor-pointer">Details</a>
+           class="inline-flex items-center justify-center px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 text-slate-700 dark:text-zinc-200 text-[10px] font-bold uppercase tracking-wider rounded-xl shadow-sm transition">
+            Details
+        </a>
     </td>
 </tr>
 {% endfor %}

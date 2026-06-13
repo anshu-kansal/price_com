@@ -1,78 +1,174 @@
 {% extends "dashboard/dashboard_base.html" %}
+{% load static %}
 
-{% block title %}TERMINAL | PRICECOM{% endblock %}
+{% block title %}PriceCom - Find the Best Price Before You Buy{% endblock %}
 
 {% block content %}
-<div class="flex flex-col space-y-0 border border-brand-border bg-brand-border gap-[1px]">
+<div class="space-y-12 pb-16">
 
-    <!-- 1️⃣ TOP: MOVING PRODUCT ALERTS -->
-    <div class="w-full bg-[#080B0F]">
-        <c-alert_ticker />
+    <!-- 1️⃣ Hero Search Section -->
+    <div class="relative w-full max-w-4xl mx-auto text-center pt-8 md:pt-16 pb-8 px-4">
+        <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight mb-4">
+            Find the Best Price <br class="md:hidden" /><span class="text-emerald-600 dark:text-emerald-400">Before You Buy</span>
+        </h1>
+        <p class="text-sm md:text-base text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-8">
+            Track prices across Amazon, Flipkart, and more. Discover deals, set alerts, and make smarter buying decisions.
+        </p>
+
+        <!-- Large Hero Search Input -->
+        <div class="relative w-full max-w-2xl mx-auto">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <i class="fas fa-search text-emerald-500 text-lg"></i>
+            </div>
+            <input type="text" id="hero-search" placeholder="Search for iPhone 15, Sony WH-1000XM5, or paste a URL..."
+                class="block w-full pl-12 pr-36 py-4 md:py-5 border-2 border-slate-200 dark:border-slate-800 rounded-full leading-5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-0 focus:border-emerald-500 dark:focus:border-emerald-500 transition-all shadow-lg shadow-slate-200/50 dark:shadow-none text-base md:text-lg"
+                @keyup.enter="
+                    const q = $el.value.trim();
+                    if (q) {
+                        window.location.href = '{% url 'dashboard:index' %}?q=' + encodeURIComponent(q);
+                    }
+                "
+            >
+            <div class="absolute inset-y-2 right-2 flex items-center gap-2">
+                <!-- 📷 Camera Icon -->
+                <a href="{% url 'dashboard:visual_search' %}" title="Search by Image"
+                   class="h-full aspect-square flex items-center justify-center rounded-full text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all">
+                    <i class="fas fa-camera text-lg"></i>
+                </a>
+                <button onclick="
+                    const q = document.getElementById('hero-search').value.trim();
+                    if (q) window.location.href = '{% url 'dashboard:index' %}?q=' + encodeURIComponent(q);
+                " class="h-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-full transition shadow-md flex items-center gap-2">
+                    <span class="hidden md:inline">Search</span>
+                    <i class="fas fa-arrow-right md:hidden"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="mt-6 flex flex-wrap justify-center gap-3 text-xs md:text-sm font-semibold text-slate-500 dark:text-slate-400">
+            <span>Popular:</span>
+            <a href="?q=iphone" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">iPhone 15</a>
+            <a href="?q=macbook" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">MacBook</a>
+            <a href="?q=playstation" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">PS5</a>
+            <a href="{% url 'dashboard:visual_search' %}" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                <i class="fas fa-camera mr-1"></i> Search by Image
+            </a>
+        </div>
     </div>
 
-    <!-- 2️⃣ MIDDLE: SEARCH PANEL -->
-    <div class="w-full bg-[#080B0F]">
-        <c-search_panel />
-    </div>
-
-    <!-- Top Summary Cards row -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-[1px]">
-        {% for card in stat_cards %}
-            <c-stat_card
-                title="{{ card.title }}"
-                value="{{ card.value }}"
-                sublabel="{{ card.sublabel }}"
-                {% if card.type %}type="{{ card.type }}"{% endif %}
-            />
-        {% empty %}
-            <c-stat_card title="Products Tracked" value="8,421" sublabel="sync pending" />
-        {% endfor %}
-    </div>
-
-    <!-- Main Workspace Split -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-[1px]">
-
-        <!-- Left Analysis Area -->
-        <div class="lg:col-span-9 flex flex-col gap-[1px]">
-            <!-- Image Upload Card (new) -->
-            <div class="w-full mb-3">
-                    {% include 'dashboard/partials/image_upload_card.html' %}
-            </div>
-
-            <!-- Chart Panel -->
-            <div class="w-full">
-                <c-price_chart />
-            </div>
-
-            <!-- Product Detail Panel (populated via HTMX when a row is clicked) -->
-            <div id="product-detail-panel" class="w-full border-t border-brand-border bg-[#05070c]">
-                <!-- Initially empty; filled by /dashboard/api/products/<id>/history/?view=panel -->
-            </div>
-
-            <!-- Price Table -->
-            <div class="w-full">
-                {% include 'dashboard/partials/price_table.html' %}
+    <!-- 2️⃣ Trending Products -->
+    <section class="max-w-[1400px] mx-auto px-4 md:px-0">
+        <div class="flex items-end justify-between mb-6">
+            <div>
+                <h2 class="text-xl md:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fas fa-fire text-amber-500"></i> Trending Products
+                </h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">What others are tracking right now</p>
             </div>
         </div>
 
-        <!-- Right Intelligence & Action Area -->
-        <!-- Glowing vertical divider effect handled by the grid gap bg-brand-border but we could explicitly style border -->
-        <div class="lg:col-span-3 flex flex-col gap-[1px] relative">
-            <div
-                class="absolute -left-[1px] top-0 bottom-0 w-[1px] bg-brand-accent/20 shadow-[0_0_10px_#00e5ff] z-10 pointer-events-none hidden lg:block">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for item in most_tracked_products %}
+            <div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-none hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all duration-300">
+                <div class="p-5 flex gap-4 items-center">
+                    <div class="w-20 h-20 shrink-0 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center p-2 group-hover:scale-105 transition-transform duration-300">
+                        <i class="fas fa-box-open text-3xl text-slate-300 dark:text-slate-700"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        {% if item.id and item.id != '#' %}
+                        <a href="{% url 'dashboard:product_detail' item.id %}" class="block font-bold text-slate-900 dark:text-white truncate text-base hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                            {{ item.product_name }}
+                        </a>
+                        {% else %}
+                        <p class="font-bold text-slate-900 dark:text-white truncate text-base">{{ item.product_name }}</p>
+                        {% endif %}
+                        <div class="mt-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            <i class="fas fa-users text-emerald-500"></i> {{ item.count }} watchers
+                        </div>
+                        <div class="mt-3 flex items-end justify-between">
+                            <span class="font-mono font-bold text-lg text-slate-900 dark:text-white">{{ item.current_price }}</span>
+                            {% if item.id and item.id != '#' %}
+                            <a href="{% url 'dashboard:product_detail' item.id %}" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">Track</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             </div>
+            {% empty %}
+            <div class="col-span-full py-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                <i class="fas fa-chart-line text-4xl text-slate-300 dark:text-slate-600 mb-3"></i>
+                <h3 class="text-lg font-bold text-slate-700 dark:text-slate-300">No trending data yet</h3>
+                <p class="text-slate-500 dark:text-slate-500 text-sm mt-1">Start tracking products to see trends.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
 
-            <c-prediction_panel />
-            <c-watchlist_panel />
-
-            <c-system_health />
-            <c-ocr_panel />
+    <!-- 3️⃣ Top Deals Today -->
+    <section class="max-w-[1400px] mx-auto px-4 md:px-0">
+        <div class="flex items-end justify-between mb-6">
+            <div>
+                <h2 class="text-xl md:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fas fa-bolt text-amber-400"></i> Top Deals Today
+                </h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Biggest price drops tracked across the network</p>
+            </div>
+            <a href="{% url 'dashboard:deals' %}" class="hidden md:flex items-center gap-2 text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition">
+                View All Deals <i class="fas fa-arrow-right"></i>
+            </a>
         </div>
 
-    </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for deal in top_deals_today %}
+            <div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-none transition-all duration-300 flex flex-col h-full relative">
+                
+                <!-- Deal Badge -->
+                <div class="absolute top-4 left-4 z-10 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full shadow-md">
+                    {{ deal.discount_percent }}
+                </div>
+
+                <div class="p-6 flex-1 flex flex-col">
+                    <div class="flex justify-end mb-4">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">{{ deal.store }}</span>
+                    </div>
+
+                    {% if deal.id and deal.id != '#' %}
+                    <a href="{% url 'dashboard:product_detail' deal.id %}" class="block font-bold text-xl text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 transition mb-2 line-clamp-2">
+                        {{ deal.product_name }}
+                    </a>
+                    {% else %}
+                    <h3 class="font-bold text-xl text-slate-900 dark:text-white mb-2 line-clamp-2">{{ deal.product_name }}</h3>
+                    {% endif %}
+
+                    <div class="mt-auto pt-6 flex items-end gap-3">
+                        <span class="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">{{ deal.current_price }}</span>
+                        <span class="text-sm font-medium text-slate-400 line-through mb-1">{{ deal.base_price }}</span>
+                    </div>
+                </div>
+
+                <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                    {% if deal.id and deal.id != '#' %}
+                    <a href="{% url 'dashboard:product_detail' deal.id %}" class="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 py-3 rounded-xl font-bold text-sm transition">
+                        View Details
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full py-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                <i class="fas fa-search-dollar text-4xl text-slate-300 dark:text-slate-600 mb-3"></i>
+                <h3 class="text-lg font-bold text-slate-700 dark:text-slate-300">No major deals tracked today</h3>
+                <p class="text-slate-500 dark:text-slate-500 text-sm mt-1">Check back later or search for a specific product.</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-6 md:hidden">
+            <a href="{% url 'dashboard:deals' %}" class="w-full flex items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 py-3 rounded-xl font-bold text-sm transition">
+                View All Deals <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </section>
+
 </div>
 {% endblock %}
-
-{% if chart_seed %}
-    {{ chart_seed|json_script:"chart-seed-data" }}
-{% endif %}

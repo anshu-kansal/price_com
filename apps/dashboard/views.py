@@ -354,13 +354,72 @@ def _system_health_snapshot() -> Dict[str, Any]:
         'cpu': cpu_load,
     }
 
+def _custom_stat_cards_payload(user) -> List[Dict[str, Any]]:
+    total_products = Product.objects.filter(is_active=True).count()
+    
+    if user and user.is_authenticated:
+        active_alerts = Watchlist.objects.filter(user=user, target_price__isnull=False).count()
+        watchlist_count = Watchlist.objects.filter(user=user).count()
+        
+        # Calculate savings
+        total_savings = Decimal('0.00')
+        watchlist_items = Watchlist.objects.filter(user=user).select_related('product')
+        for item in watchlist_items:
+            if item.product and item.product.current_lowest_price and item.added_price:
+                diff = item.added_price - item.product.current_lowest_price
+                if diff > 0:
+                    total_savings += diff
+    else:
+        active_alerts = 0
+        watchlist_count = 0
+        total_savings = Decimal('0.00')
+        
+    savings_str = f"₹{int(total_savings):,}"
+    
+    return [
+        {
+            'title': 'Products Tracked',
+            'value': f"{total_products:,}",
+            'icon': 'fas fa-layer-group',
+            'trend': '+12% this week',
+            'trend_type': 'up',
+            'subtext': 'Active catalog size'
+        },
+        {
+            'title': 'Active Alerts',
+            'value': str(active_alerts),
+            'icon': 'fas fa-bell',
+            'trend': 'Trigger configured',
+            'trend_type': 'neutral',
+            'subtext': 'Alerts pending'
+        },
+        {
+            'title': 'Total Savings Found',
+            'value': savings_str,
+            'icon': 'fas fa-piggy-bank',
+            'trend': 'Optimal buying',
+            'trend_type': 'success',
+            'subtext': 'Based on entry drops'
+        },
+        {
+            'title': 'Products in Watchlist',
+            'value': str(watchlist_count),
+            'icon': 'fas fa-heart',
+            'trend': 'Live monitoring',
+            'trend_type': 'neutral',
+            'subtext': 'Products in watch'
+        }
+    ]
+
 @login_required
 def dashboard_home(request):
     """
     Dashboard Home View -- hydrates template context with live metrics.
     """
     try:
-        stat_cards, meta = _stat_cards_payload()
+        # 4 Custom SaaS KPI Cards
+        stat_cards = _custom_stat_cards_payload(request.user)
+        _, meta = _stat_cards_payload()
         prediction_payload = _prediction_payload(meta)
         chart_seed = _chart_payload()
 
@@ -385,11 +444,11 @@ def dashboard_home(request):
             
             icon = product.category.icon if product.category else 'fas fa-box'
             if 'mobile' in icon.lower() or 'phone' in icon.lower():
-                icon_color = 'text-[#00e5ff]'
+                icon_color = 'text-indigo-500'
             elif 'laptop' in icon.lower() or 'computer' in icon.lower():
-                icon_color = 'text-[#ffb000]'
+                icon_color = 'text-amber-500'
             else:
-                icon_color = 'text-[#ff3366]'
+                icon_color = 'text-rose-500'
 
             ticker_alerts.append({
                 'name': product.name.upper()[:15],
@@ -400,26 +459,211 @@ def dashboard_home(request):
                 'new_price': _format_rupees(drop.price),
                 'store': sp.store_name.upper()[:4],
                 'time_ago': time_ago,
+                'product_url': getattr(sp, 'product_url', '#') or '#',
             })
 
         if not ticker_alerts:
             ticker_alerts = [
-                {'name': 'IPHONE-14-128', 'icon': 'fas fa-mobile-screen', 'icon_color': 'text-[#ff3366]', 'drop_pct': '-5.4%', 'old_price': '₹61,499', 'new_price': '₹58,000', 'store': 'AMZN', 'time_ago': 'T-4m'},
-                {'name': 'SAMSUNG-S23-256', 'icon': 'fas fa-mobile', 'icon_color': 'text-[#00e5ff]', 'drop_pct': 'RESTOCK', 'old_price': 'QTY: 14', 'new_price': '', 'store': 'FLKP', 'time_ago': 'T-12m'},
-                {'name': 'SONY-WH-1000XM5', 'icon': 'fas fa-headphones', 'icon_color': 'text-[#ffb000]', 'drop_pct': '+13.5%', 'old_price': '₹29,990', 'new_price': '₹25,950', 'store': 'CROM', 'time_ago': 'T-2s'},
+                {'name': 'IPHONE-14-128', 'icon': 'fas fa-mobile-screen', 'icon_color': 'text-rose-500', 'drop_pct': '-5.4%', 'old_price': '₹61,499', 'new_price': '₹58,000', 'store': 'AMZN', 'time_ago': 'T-4m', 'product_url': '#'},
+                {'name': 'SAMSUNG-S23-256', 'icon': 'fas fa-mobile', 'icon_color': 'text-indigo-500', 'drop_pct': 'RESTOCK', 'old_price': 'QTY: 14', 'new_price': '', 'store': 'FLKP', 'time_ago': 'T-12m', 'product_url': '#'},
+                {'name': 'SONY-WH-1000XM5', 'icon': 'fas fa-headphones', 'icon_color': 'text-amber-500', 'drop_pct': '+13.5%', 'old_price': '₹29,990', 'new_price': '₹25,950', 'store': 'CROM', 'time_ago': 'T-2s', 'product_url': '#'},
+            ]
+
+        quick_buy_deals = [
+            {
+                'name': alert['name'],
+                'store': alert['store'],
+                'price': alert['new_price'] or alert['old_price'],
+                'drop_pct': alert['drop_pct'],
+                'url': alert.get('product_url', '#'),
+            }
+            for alert in ticker_alerts[:3]
+        ]
+
+        # Calculate Lower Section Cards
+        # 1. Recent Alerts
+        recent_alerts_qs = NotificationLog.objects.filter(user=request.user).order_by('-intent_timestamp')[:5]
+        recent_alerts = []
+        for log in recent_alerts_qs:
+            recent_alerts.append({
+                'product_name': log.product.name if log.product else 'System Notification',
+                'alert_type': log.get_alert_type_display(),
+                'status': log.status,
+                'price': _format_rupees(log.price_at_alert),
+                'time_ago': log.intent_timestamp.strftime('%d %b, %H:%M')
+            })
+        if not recent_alerts:
+            recent_alerts = [
+                {'product_name': 'iPhone 15 Pro Max', 'alert_type': 'Price Drop', 'status': 'SENT', 'price': '₹1,34,999', 'time_ago': 'Just now'},
+                {'product_name': 'Sony WH-1000XM5 Headphones', 'alert_type': 'Price Drop', 'status': 'SENT', 'price': '₹24,990', 'time_ago': '2 hours ago'},
+                {'product_name': 'Kindle Paperwhite 16GB', 'alert_type': 'Back in Stock', 'status': 'SENT', 'price': '₹13,999', 'time_ago': '1 day ago'}
+            ]
+
+        # 2. Top Deals Today (Highest discount percent)
+        deals_qs = Product.objects.filter(
+            is_active=True,
+            base_price__isnull=False,
+            current_lowest_price__isnull=False,
+            base_price__gt=0
+        ).prefetch_related('prices')
+        
+        deals_list = []
+        for p in deals_qs:
+            discount_pct = float(((p.base_price - p.current_lowest_price) / p.base_price) * Decimal('100.0'))
+            if discount_pct > 0:
+                deals_list.append((p, discount_pct))
+        deals_list.sort(key=lambda x: x[1], reverse=True)
+        
+        top_deals = []
+        for p, pct in deals_list[:3]:
+            store_prices = list(p.prices.all())
+            best_store = store_prices[0].store_name if store_prices else "Amazon"
+            top_deals.append({
+                'product_name': p.name,
+                'discount_percent': f"{pct:.1f}% OFF",
+                'current_price': _format_rupees(p.current_lowest_price),
+                'base_price': _format_rupees(p.base_price),
+                'store': best_store,
+                'id': p.id
+            })
+        if not top_deals:
+            top_deals = [
+                {'product_name': 'Apple Watch Series 9', 'discount_percent': '15.2% OFF', 'current_price': '₹37,900', 'base_price': '₹44,900', 'store': 'Amazon', 'id': 1},
+                {'product_name': 'MacBook Air M2 8GB/256GB', 'discount_percent': '12.5% OFF', 'current_price': '₹99,990', 'base_price': '₹1,14,900', 'store': 'Flipkart', 'id': 2}
+            ]
+
+        # 3. Most Tracked Products
+        from django.db.models import Count
+        most_tracked_qs = Watchlist.objects.values('product').annotate(count=Count('product')).order_by('-count')[:3]
+        most_tracked = []
+        for item in most_tracked_qs:
+            prod = Product.objects.filter(id=item['product']).first()
+            if prod:
+                most_tracked.append({
+                    'product_name': prod.name,
+                    'count': item['count'],
+                    'current_price': _format_rupees(prod.current_lowest_price),
+                    'id': prod.id
+                })
+        if not most_tracked:
+            most_tracked = [
+                {'product_name': 'iPhone 15 Pro Max', 'count': 18, 'current_price': '₹1,34,999', 'id': 1},
+                {'product_name': 'Sony WH-1000XM5 Headphones', 'count': 12, 'current_price': '₹24,990', 'id': 2},
+                {'product_name': 'iPad Air M1 64GB WiFi', 'count': 9, 'current_price': '₹52,900', 'id': 3}
             ]
 
         context = {
             'stat_cards': stat_cards,
-            'active_alerts': meta['active_alerts'],
+            'active_alerts': Watchlist.objects.filter(user=request.user, target_price__isnull=False).count(),
             'prediction': prediction_payload,
             'chart_seed': chart_seed,
             'ticker_alerts': ticker_alerts,
+            'quick_buy_deals': quick_buy_deals,
+            'recent_alerts': recent_alerts,
+            'top_deals_today': top_deals,
+            'most_tracked_products': most_tracked,
         }
+
+        # Check if mobile request
+        user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+        is_mobile = 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent
+
+        if is_mobile or request.GET.get('mobile') == 'true':
+            return render(request, 'dashboard/mobile_index.html', context)
+
         return render(request, 'dashboard/index.html', context)
     except Exception as e:
         logger.error(f"FATAL dashboard_home error: {e}", exc_info=True)
         return HttpResponse("A technical error occurred in the dashboard engine.", status=500)
+
+
+@login_required
+def visual_search_page(request):
+    """Dedicated 'Search by Image' page — the premium Visual Search experience."""
+    return render(request, 'dashboard/visual_search.html', {
+        'active_alerts': Watchlist.objects.filter(user=request.user, target_price__isnull=False).count(),
+    })
+
+
+@login_required
+def dashboard_deals(request):
+    """
+    Dedicated Deals Page View showing top discounts, trending, and highlights.
+    """
+    try:
+        products_qs = Product.objects.filter(
+            is_active=True,
+            base_price__isnull=False,
+            current_lowest_price__isnull=False,
+            base_price__gt=0
+        ).prefetch_related('prices')
+        
+        products_list = []
+        for p in products_qs:
+            discount_pct = float(((p.base_price - p.current_lowest_price) / p.base_price) * Decimal('100.0'))
+            if discount_pct > 0:
+                products_list.append((p, discount_pct))
+                
+        products_list.sort(key=lambda x: x[1], reverse=True)
+        
+        deals_data = []
+        for p, pct in products_list[:30]:
+            prices = list(p.prices.all())
+            best_price = p.current_lowest_price
+            best_store_name = "N/A"
+            best_store_url = "#"
+            thumbnail = ""
+            for sp in prices:
+                if sp.current_price == best_price:
+                    best_store_name = sp.store_name
+                    best_store_url = sp.product_url
+                    thumbnail = sp.image_url
+                    break
+            if not thumbnail and prices:
+                thumbnail = prices[0].image_url
+                
+            deals_data.append({
+                'id': p.id,
+                'name': p.name,
+                'discount_percent': f"{pct:.1f}% OFF",
+                'best_price': _format_rupees(best_price),
+                'base_price': _format_rupees(p.base_price),
+                'best_store_name': best_store_name,
+                'best_store_url': best_store_url,
+                'thumbnail': thumbnail or '/static/images/placeholder.png',
+            })
+            
+        if not deals_data:
+            deals_data = [
+                {
+                    'id': 1,
+                    'name': 'Apple Watch Series 9',
+                    'discount_percent': '15.2% OFF',
+                    'best_price': '₹37,900',
+                    'base_price': '₹44,900',
+                    'best_store_name': 'Amazon',
+                    'best_store_url': '#',
+                    'thumbnail': '/static/images/placeholder.png',
+                },
+                {
+                    'id': 2,
+                    'name': 'MacBook Air M2 8GB/256GB',
+                    'discount_percent': '12.5% OFF',
+                    'best_price': '₹99,990',
+                    'base_price': '₹1,14,900',
+                    'best_store_name': 'Flipkart',
+                    'best_store_url': '#',
+                    'thumbnail': '/static/images/placeholder.png',
+                }
+            ]
+            
+        return render(request, 'dashboard/deals.html', {
+            'deals': deals_data,
+            'active_alerts': Watchlist.objects.filter(user=request.user, target_price__isnull=False).count(),
+        })
+    except Exception as e:
+        logger.error(f"FATAL dashboard_deals error: {e}", exc_info=True)
+        return HttpResponse("A technical error occurred in the deals engine.", status=500)
 
 
 @login_required
@@ -442,6 +686,7 @@ def product_detail_page(request, id):
             'availability_label': 'In Stock' if getattr(sp, 'is_available', True) else 'Out of Stock',
             'last_updated': sp.last_updated,
             'product_url': sp.product_url,
+            'image_url': sp.image_url,
         })
 
     stores_sorted = sorted(stores, key=lambda s: (0, s['price']) if s['price'] is not None else (1, Decimal('0')))
@@ -639,6 +884,7 @@ def dashboard_watchlist(request):
             product_image_url = prices[0].image_url
 
         item_data = {
+            'id': product.id,
             'uuid': str(entry.uuid),
             'best_store_name': best_store_name,
             'store_count': len(prices),
@@ -814,6 +1060,11 @@ def api_products(request):
             })
             continue
 
+        cheapest_store_url = None
+        for sp in prices:
+            if sp.current_price == min_value and sp.product_url:
+                cheapest_store_url = sp.product_url
+
         for sp in prices:
             product_list.append({
                 'id': product.id,
@@ -823,12 +1074,20 @@ def api_products(request):
                 'min': _format_rupees(min_value),
                 'delta': delta_label,
                 'status': status,
+                'buy_url': cheapest_store_url or sp.product_url or '#',
             })
 
     if not product_list:
         product_list = [
             {'id': 1, 'name': 'IPHONE-14-128-BLK', 'store': 'AMAZON', 'price': '₹61,499', 'min': '₹61,499', 'delta': 'DROP_1.5K', 'status': 'LIVE'},
         ]
+
+    # Check if mobile request
+    user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+    is_mobile = 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent
+
+    if is_mobile or request.GET.get('mobile') == 'true':
+        return render(request, 'dashboard/partials/mobile_price_table.html', {'products': product_list})
 
     return render(request, 'dashboard/partials/product_rows.html', {'products': product_list})
 
@@ -893,6 +1152,14 @@ def api_product_history(request, id):
 def api_watchlist(request):
     """HTMX endpoint for watchlist panel."""
     items = _watchlist_items(request.user if request else None)
+
+    # Check if mobile request
+    user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+    is_mobile = 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent
+
+    if is_mobile or request.GET.get('mobile') == 'true':
+        return render(request, 'dashboard/partials/mobile_watchlist.html', {'items': items})
+
     return render(request, 'dashboard/partials/watchlist_items.html', {'items': items})
 
 
@@ -1278,12 +1545,12 @@ def api_activate_dip_alert(request):
     formatted_current = f"₹{int(current_price):,}"
 
     html = f'''
-    <div class="w-full mt-6 py-3 border border-brand-success bg-brand-success/10 text-brand-success font-mono text-xs uppercase tracking-widest text-center space-y-1">
-        <div><i class="fas fa-bell mr-1"></i> DIP ALERT ACTIVE</div>
-        <div class="text-[10px] text-brand-textMuted normal-case tracking-normal">
-            Watching <span class="text-brand-textHighlight">{product.name[:30]}</span><br>
-            Alert when price drops below <span class="text-brand-success font-bold">{formatted_target}</span>
-            <span class="text-brand-textMuted">(current: {formatted_current})</span>
+    <div class="w-full mt-6 p-4 border border-emerald-250 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 text-xs rounded-2xl text-center space-y-2">
+        <div class="font-bold flex items-center justify-center gap-1.5 uppercase tracking-wider text-emerald-600 dark:text-emerald-400"><i class="fas fa-bell"></i> Dip Alert Configured</div>
+        <div class="text-[11px] text-slate-500 dark:text-zinc-400 leading-normal">
+            Watching <span class="font-bold text-slate-900 dark:text-white">{product.name[:35]}</span><br>
+            Trigger target: <span class="font-extrabold text-emerald-600 dark:text-emerald-400">{formatted_target}</span>
+            <span class="text-[10px] text-slate-400 dark:text-zinc-500">(current: {formatted_current})</span>
         </div>
     </div>
     '''

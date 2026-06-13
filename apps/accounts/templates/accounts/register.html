@@ -1,177 +1,191 @@
 {% load static %}
 {% load socialaccount %}
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up | Pricecom</title>
+    <title>Sign Up | PriceCom</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="{% static 'accounts/css/auth_terminal.css' %}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        heading: ['"Space Grotesk"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('pricecom-theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 </head>
 
-<body class="auth-shell">
-    <main class="auth-main">
-        <section class="auth-grid">
-            <aside class="auth-panel">
-                <p class="auth-kicker">Provisioning</p>
-                <div class="auth-brand">
-                    <span class="brand-main">Price</span>
-                    <span class="brand-accent">Com</span>
+<body class="antialiased min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 flex items-center justify-center p-4 transition-colors duration-300">
+
+    <div class="w-full max-w-md">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <a href="/" class="inline-flex items-center gap-2 text-2xl font-extrabold text-slate-900 dark:text-white font-heading">
+                <i class="fas fa-satellite-dish text-indigo-600 dark:text-indigo-400"></i>
+                Price<span class="text-indigo-600 dark:text-indigo-400">Com</span>
+            </a>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-xl space-y-6">
+            <div class="text-center space-y-2">
+                <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Get Started</span>
+                <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight">Create Your Account</h1>
+                <p class="text-xs text-slate-400 dark:text-zinc-500">Track prices, set alerts, and never overpay again</p>
+            </div>
+
+            {% if messages %}
+            <div class="space-y-2">
+                {% for message in messages %}
+                <div class="px-4 py-3 rounded-xl text-xs font-semibold border
+                    {% if message.tags == 'success' %}bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400
+                    {% elif message.tags == 'error' %}bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/30 text-red-700 dark:text-red-400
+                    {% else %}bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400{% endif %}">
+                    {{ message }}
                 </div>
-                <h1 class="auth-title">Initialize A New Operator Account</h1>
-                <p class="auth-subtitle">Create your credentials to start tracking product volatility, watchlist events, and opportunity signals from one command center.</p>
+                {% endfor %}
+            </div>
+            {% endif %}
 
-                <div class="status-strip">
-                    <div class="status-row">
-                        <span>Registration Route</span>
-                        <span class="status-value">Internal</span>
-                    </div>
-                    <div class="status-row">
-                        <span>Verification State</span>
-                        <span class="status-value">Required</span>
-                    </div>
-                    <div class="status-row">
-                        <span>Security Score</span>
-                        <span class="status-value status-live">Strong + Encrypted</span>
-                    </div>
+            {% if form.non_field_errors %}
+            <div class="space-y-2">
+                {% for err in form.non_field_errors %}
+                <div class="px-4 py-3 rounded-xl text-xs font-semibold border bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/30 text-red-700 dark:text-red-400">
+                    {{ err }}
                 </div>
-            </aside>
+                {% endfor %}
+            </div>
+            {% endif %}
 
-            <section class="auth-card">
-                <p class="auth-kicker">Sign Up</p>
+            <form method="post" novalidate class="space-y-4">
+                {% csrf_token %}
 
-                {% if messages %}
-                <ul class="message-list">
-                    {% for message in messages %}
-                    <li class="message-item {{ message.tags|default:'' }}">{{ message }}</li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
+                <div class="space-y-1.5">
+                    <label for="id_username" class="block text-[10px] font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Username</label>
+                    <input
+                        type="text"
+                        id="id_username"
+                        name="username"
+                        placeholder="Choose a username"
+                        value="{{ form.username.value|default:'' }}"
+                        autocomplete="username"
+                        required
+                        class="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition placeholder-slate-400 dark:placeholder-zinc-600"
+                    >
+                    {% if form.username.errors %}
+                    <p class="text-xs text-red-500 font-medium mt-1">{{ form.username.errors.0 }}</p>
+                    {% endif %}
+                </div>
 
-                {% if form.non_field_errors %}
-                <ul class="error-list">
-                    {% for err in form.non_field_errors %}
-                    <li class="error-item">{{ err }}</li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
+                <div class="space-y-1.5">
+                    <label for="id_email" class="block text-[10px] font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Email</label>
+                    <input
+                        type="email"
+                        id="id_email"
+                        name="email"
+                        placeholder="you@example.com"
+                        value="{{ form.email.value|default:'' }}"
+                        autocomplete="email"
+                        required
+                        class="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition placeholder-slate-400 dark:placeholder-zinc-600"
+                    >
+                    {% if form.email.errors %}
+                    <p class="text-xs text-red-500 font-medium mt-1">{{ form.email.errors.0 }}</p>
+                    {% endif %}
+                </div>
 
-                <form method="post" novalidate>
-                    {% csrf_token %}
-
-                    <div class="field-group">
-                        <label for="id_username" class="field-label">Username</label>
+                <div class="space-y-1.5">
+                    <label for="id_password1" class="block text-[10px] font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Password</label>
+                    <div class="relative">
                         <input
-                            type="text"
-                            id="id_username"
-                            name="username"
-                            class="field-control"
-                            placeholder="operator-id"
-                            value="{{ form.username.value|default:'' }}"
-                            autocomplete="username"
+                            type="password"
+                            id="id_password1"
+                            name="password1"
+                            placeholder="Create a password"
+                            autocomplete="new-password"
                             required
+                            class="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition placeholder-slate-400 dark:placeholder-zinc-600 pr-12"
                         >
-                        {% if form.username.errors %}
-                        <ul class="error-list">
-                            {% for err in form.username.errors %}
-                            <li class="error-item">{{ err }}</li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
+                        <button type="button" data-password-toggle="id_password1" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition" aria-label="Toggle password visibility">
+                            <i class="fa-regular fa-eye text-sm"></i>
+                        </button>
                     </div>
+                    {% if form.password1.errors %}
+                    <p class="text-xs text-red-500 font-medium mt-1">{{ form.password1.errors.0 }}</p>
+                    {% endif %}
+                </div>
 
-                    <div class="field-group">
-                        <label for="id_email" class="field-label">Email</label>
+                <div class="space-y-1.5">
+                    <label for="id_password2" class="block text-[10px] font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Confirm Password</label>
+                    <div class="relative">
                         <input
-                            type="email"
-                            id="id_email"
-                            name="email"
-                            class="field-control"
-                            placeholder="operator@domain.com"
-                            value="{{ form.email.value|default:'' }}"
-                            autocomplete="email"
+                            type="password"
+                            id="id_password2"
+                            name="password2"
+                            placeholder="Confirm your password"
+                            autocomplete="new-password"
                             required
+                            class="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition placeholder-slate-400 dark:placeholder-zinc-600 pr-12"
                         >
-                        {% if form.email.errors %}
-                        <ul class="error-list">
-                            {% for err in form.email.errors %}
-                            <li class="error-item">{{ err }}</li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
+                        <button type="button" data-password-toggle="id_password2" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition" aria-label="Toggle password visibility">
+                            <i class="fa-regular fa-eye text-sm"></i>
+                        </button>
                     </div>
+                    {% if form.password2.errors %}
+                    <p class="text-xs text-red-500 font-medium mt-1">{{ form.password2.errors.0 }}</p>
+                    {% endif %}
+                </div>
 
-                    <div class="field-group">
-                        <label for="id_password1" class="field-label">Password</label>
-                        <div class="field-wrap">
-                            <input
-                                type="password"
-                                id="id_password1"
-                                name="password1"
-                                class="field-control"
-                                placeholder="create-security-key"
-                                autocomplete="new-password"
-                                required
-                            >
-                            <button type="button" class="password-toggle" data-password-toggle="id_password1" aria-label="Toggle password visibility">
-                                <i class="fa-regular fa-eye"></i>
-                            </button>
-                        </div>
-                        {% if form.password1.errors %}
-                        <ul class="error-list">
-                            {% for err in form.password1.errors %}
-                            <li class="error-item">{{ err }}</li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
-                    </div>
+                <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-sm transition">
+                    Create Account
+                </button>
+            </form>
 
-                    <div class="field-group">
-                        <label for="id_password2" class="field-label">Confirm password</label>
-                        <div class="field-wrap">
-                            <input
-                                type="password"
-                                id="id_password2"
-                                name="password2"
-                                class="field-control"
-                                placeholder="confirm-security-key"
-                                autocomplete="new-password"
-                                required
-                            >
-                            <button type="button" class="password-toggle" data-password-toggle="id_password2" aria-label="Toggle password visibility">
-                                <i class="fa-regular fa-eye"></i>
-                            </button>
-                        </div>
-                        {% if form.password2.errors %}
-                        <ul class="error-list">
-                            {% for err in form.password2.errors %}
-                            <li class="error-item">{{ err }}</li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
-                    </div>
+            <div class="relative flex items-center justify-center">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-slate-200 dark:border-zinc-800"></div>
+                </div>
+                <span class="relative bg-white dark:bg-zinc-900 px-3 text-[10px] uppercase font-bold text-slate-400 dark:text-zinc-500 tracking-wider">Or continue with</span>
+            </div>
 
-                    <button type="submit" class="auth-button">Create account</button>
+            <div>
+                <a class="w-full inline-flex items-center justify-center gap-2.5 px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-900/60 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-200 shadow-sm transition" href="{% provider_login_url 'google' process='login' %}">
+                    <i class="fab fa-google text-red-500"></i>
+                    <span>Continue with Google</span>
+                </a>
+            </div>
 
-                    <div class="auth-divider" style="margin: 16px 0; text-align: center; color: #64748b; font-size: 12px; letter-spacing: 0.12em;">OR</div>
+            <div class="text-center text-xs">
+                <span class="text-slate-400 dark:text-zinc-500">Already have an account?</span>
+                <a href="{% url 'login' %}" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline ml-1">Sign In</a>
+            </div>
+        </div>
 
-                    <a class="auth-button google-button" href="{% provider_login_url 'google' process='login' %}">
-                        <i class="fab fa-google"></i>
-                        Continue with Google
-                    </a>
-                </form>
-
-                <p class="auth-foot">
-                    Already registered?
-                    <a class="auth-link" href="{% url 'login' %}">Sign in</a>
-                </p>
-            </section>
-        </section>
-    </main>
+        <!-- Footer -->
+        <p class="text-center text-[10px] text-slate-400 dark:text-zinc-600 mt-6">
+            &copy; 2026 PriceCom. Real-time price comparison intelligence.
+        </p>
+    </div>
 
     <script>
         (function () {
@@ -179,14 +193,12 @@
             toggles.forEach(function (toggle) {
                 const fieldId = toggle.getAttribute('data-password-toggle');
                 const input = document.getElementById(fieldId);
-                if (!input) {
-                    return;
-                }
+                if (!input) return;
 
                 toggle.addEventListener('click', function () {
                     const asText = input.type === 'password';
                     input.type = asText ? 'text' : 'password';
-                    toggle.innerHTML = asText ? '<i class="fa-regular fa-eye-slash"></i>' : '<i class="fa-regular fa-eye"></i>';
+                    toggle.innerHTML = asText ? '<i class="fa-regular fa-eye-slash text-sm"></i>' : '<i class="fa-regular fa-eye text-sm"></i>';
                 });
             });
         })();

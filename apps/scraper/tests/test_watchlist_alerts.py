@@ -17,7 +17,7 @@ User = get_user_model()
 
 class WatchlistAlertPipelineTest(TestCase):
     def setUp(self) -> None:
-        self.user = User.objects.create_user(email="tester@example.com", password="pass1234")
+        self.user = User.objects.create_user(username="tester", email="tester@example.com", password="pass1234")
         self.product = Product.objects.create(
             name="Test Widget",
             base_price=Decimal('120.00'),

@@ -23,7 +23,6 @@ def initialize_user_ecosystem(sender, instance, created, **kwargs) -> None:
     if created:
         try:
             Wallet.objects.get_or_create(user=instance)
-            Watchlist.objects.get_or_create(user=instance)
-            logger.info(f"System Alignment Success: Initialized Wallet & Watchlist for {instance.email}")
+            logger.info(f"System Alignment Success: Initialized Wallet for {instance.email}")
         except Exception as e:
             logger.error(f"Ecosystem Initialization Failed for {instance.email}: {str(e)}")
