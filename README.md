@@ -13,6 +13,8 @@
 # PriceCom — Real-time E-commerce Intelligence Engine
 ### Cross-Platform Price Intelligence · Semantic Product Matching · Blockchain-Grade Data Integrity
 
+> Backend application moved to `backend/`. Use `backend/.env.example` to configure environment variables.
+
 [![Django](https://img.shields.io/badge/Django-4.2+-092E20?style=for-the-badge&logo=django&logoColor=white)]()
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)]()
 [![MySQL](https://img.shields.io/badge/Database-MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)]()

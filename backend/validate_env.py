@@ -12,21 +12,21 @@ def validate_environment():
     print("--- Antigravity Environment Check ---")
     
     # 1. Check .env existence
-    env_path = Path('.env')
+    env_path = Path(__file__).resolve().parent / '.env'
     if not env_path.exists():
-        print("[FAIL] .env file not found!")
+        print("[FAIL] .env file not found! Expected backend/.env")
         sys.exit(1)
     print("[PASS] .env file exists.")
     
     # 2. Load Environment
-    load_dotenv()
+    load_dotenv(env_path)
     
     # 3. Validate Critical Secrets
-    secret_key = os.getenv('DJANGO_SECRET_KEY')
+    secret_key = os.getenv('SECRET_KEY', os.getenv('DJANGO_SECRET_KEY'))
     if not secret_key or secret_key.startswith('django-insecure'):
-        print("[FAIL] DJANGO_SECRET_KEY is missing or insecure!")
+        print("[FAIL] SECRET_KEY/DJANGO_SECRET_KEY is missing or insecure!")
         sys.exit(1)
-    print("[PASS] DJANGO_SECRET_KEY is set and secure.")
+    print("[PASS] SECRET_KEY is set and secure.")
     
     # 4. Validate Portability
     db_url = os.getenv('DATABASE_URL')
@@ -38,9 +38,9 @@ def validate_environment():
     print(f"[PASS] Database Configuration Found. (URL: {'Yes' if db_url else 'No'}, SQLite: {use_sqlite})")
     
     # 5. Validate Broker
-    broker = os.getenv('CELERY_BROKER_URL')
+    broker = os.getenv('CELERY_BROKER_URL', os.getenv('REDIS_URL'))
     if not broker:
-        print("[FAIL] CELERY_BROKER_URL is missing!")
+        print("[FAIL] CELERY_BROKER_URL or REDIS_URL is missing!")
         sys.exit(1)
     print("[PASS] Celery Broker Configured.")
     
