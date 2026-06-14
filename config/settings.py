@@ -5,20 +5,17 @@ import logging
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
-import dj_database_url
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / '.env')
-load_dotenv(BASE_DIR.parent / '.env', override=False)
-
+load_dotenv()
 logger = logging.getLogger(__name__)
 logger.debug("ENV TEST: DB_NAME=%s DB_USER=%s", os.getenv("DB_NAME"), os.getenv("DB_USER"))
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
-SECRET_KEY = os.getenv('SECRET_KEY', os.getenv('DJANGO_SECRET_KEY', 'django-insecure-key'))
-DEBUG = os.getenv('DJANGO_DEBUG', os.getenv('DEBUG', 'False')) == 'True'
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-key')
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -79,62 +76,52 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # --- DATABASE LOGIC ---
 USE_SQLITE = os.getenv('USE_SQLITE', 'False') == 'True'
-DATABASE_URL = os.getenv('DATABASE_URL')
-REDIS_URL = os.getenv('REDIS_URL', os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0'))
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL)
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
 
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=not DEBUG)
-    }
-    logger.info("Using DATABASE_URL from environment.")
-else:
-    # Check if MySQL service is reachable
-    mysql_reachable = False
-    if not USE_SQLITE:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        try:
-            # Check default MySQL port 3306 or from env
-            db_port = int(os.getenv('DB_PORT', 3306))
-            # Assuming localhost for check or DB_HOST if it is an IP
-            db_host = os.getenv('DB_HOST', '127.0.0.1')
-            if db_host == 'localhost':
-                db_host = '127.0.0.1'
+# Check if MySQL service is reachable
+mysql_reachable = False
+if not USE_SQLITE:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1)
+    try:
+        # Check default MySQL port 3306 or from env
+        db_port = int(os.getenv('DB_PORT', 3306))
+        # Assuming localhost for check or DB_HOST if it is an IP
+        db_host = os.getenv('DB_HOST', '127.0.0.1')
+        if db_host == 'localhost':
+            db_host = '127.0.0.1'
+            
+        result = sock.connect_ex((db_host, db_port))
+        if result == 0:
+            mysql_reachable = True
+    except Exception:
+        mysql_reachable = False
+    finally:
+        sock.close()
 
-            result = sock.connect_ex((db_host, db_port))
-            if result == 0:
-                mysql_reachable = True
-        except Exception:
-            mysql_reachable = False
-        finally:
-            sock.close()
-
-    if not USE_SQLITE and mysql_reachable:
-        try:
-            DATABASES = {
-                'default': {
-                    'ENGINE': 'django.db.backends.mysql',
-                    'NAME': os.getenv('DB_NAME'),
-                    'USER': os.getenv('DB_USER'),
-                    'PASSWORD': os.getenv('DB_PASSWORD'),
-                    'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-                    'PORT': os.getenv('DB_PORT', '3306'),
-                }
-            }
-            logger.info("MySQL reachable; using MySQL.")
-        except Exception:
-            mysql_reachable = False
-
-    if USE_SQLITE or not mysql_reachable:
-        logger.info("Using SQLite: USE_SQLITE=%s mysql_reachable=%s", USE_SQLITE, mysql_reachable)
+if not USE_SQLITE and mysql_reachable:
+    try:
         DATABASES = {
             'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
+                'ENGINE': 'django.db.backends.mysql',
+                'NAME': os.getenv('DB_NAME'),
+                'USER': os.getenv('DB_USER'),
+                'PASSWORD': os.getenv('DB_PASSWORD'),
+                'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+                'PORT': os.getenv('DB_PORT', '3306'),
             }
         }
+        logger.info("MySQL reachable; using MySQL.")
+    except Exception:
+        mysql_reachable = False
+
+if USE_SQLITE or not mysql_reachable:
+    logger.info("Using SQLite: USE_SQLITE=%s mysql_reachable=%s", USE_SQLITE, mysql_reachable)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # --- AUTH MODEL ---
 AUTH_USER_MODEL = 'accounts.User'

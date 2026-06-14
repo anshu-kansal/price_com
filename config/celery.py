@@ -17,8 +17,8 @@ app = Celery('config')
 # - namespace='CELERY' means all celery-related configuration keys
 #   should have a `CELERY_` prefix.
 app.config_from_object('django.conf:settings', namespace='CELERY')
-app.conf.broker_url = os.getenv('CELERY_BROKER_URL', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
-app.conf.result_backend = os.getenv('CELERY_RESULT_BACKEND', os.getenv('REDIS_URL', app.conf.broker_url))
+app.conf.broker_url = "redis://127.0.0.1:6379/0"
+app.conf.result_backend = "redis://127.0.0.1:6379/0"
 
 # 4. Force Logic: Autodiscover tasks across all installed apps
 # This ensures we don't need to manually register tasks.
